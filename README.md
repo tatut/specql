@@ -1,3 +1,5 @@
+[![CircleCI](https://circleci.com/gh/tatut/specql.svg?style=svg)](https://circleci.com/gh/tatut/specql)
+
 # specql
 
 An EXPERIMENTAL library for simple PostgreSQL queries with namespaced keys.

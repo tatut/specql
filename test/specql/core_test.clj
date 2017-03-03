@@ -37,12 +37,12 @@
 
 (deftest query-unknown-table-or-column
   (is (thrown? AssertionError
-               (eval '(fetch db
+               (eval '(specql.core/fetch db
                              :foo/bar
                              #{:foo/baz :foo/quux}
                              {}))))
   (is (thrown? AssertionError
-               (eval '(fetch db
+               (eval '(specql.core/fetch db
                              :employee/employees
                              #{:employee/foo}
                              {})))))

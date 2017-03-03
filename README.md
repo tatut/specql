@@ -14,7 +14,7 @@ You can then query for rows by giving a table, the keys to return and a map of k
 
 ;; Define tables as [table-name :namespaced/table-keyword]
 ;; specql automatically creates specs for the columns of the table (in the same namespace as the
-table keyword). For example if :employee/employees is the table and it has "id" and "name"
+;; table keyword). For example if :employee/employees is the table and it has "id" and "name"
 ;; columns, specql will generate :employee/id and :employee/name specs with predicates
 ;; determined by the column data type
 (define-tables define-db

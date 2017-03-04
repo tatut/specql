@@ -9,7 +9,10 @@
 (def relkind-q "SELECT relkind FROM pg_catalog.pg_class WHERE relname=?")
 (def columns-q (str "SELECT attr.attname AS name, attr.attnum AS number,"
                     "attr.attnotnull AS \"not-null?\","
-                    "t.typname AS type "
+                    "attr.atthasdef AS \"has-default?\","
+                    "t.typname AS type, "
+                    "EXISTS(SELECT indkey FROM pg_catalog.pg_index i "
+                    "        WHERE i.indrelid=attr.attrelid AND attr.attnum=ANY(i.indkey) AND i.indisprimary=TRUE) AS \"primary-key?\""
                     "FROM pg_catalog.pg_attribute attr "
                     "JOIN pg_catalog.pg_class cls ON attr.attrelid = cls.oid "
                     "JOIN pg_catalog.pg_type t ON attr.atttypid = t.oid "
@@ -41,12 +44,17 @@
 
 (defn- composite-type
   "Find user defined composite type from registry by name."
-  [name]
-  (some (fn [[key {n :name t :type}]]
-          (and (= :composite t)
-               (= name n)
+  ([name] (composite-type @table-info-registry name))
+  ([table-info-registry name]
+   (some (fn [[key {n :name t :type}]]
+           (and (= :composite t)
+                (= name n)
                 key))
-        @table-info-registry))
+         table-info-registry)))
+
+(defn- required-insert? [{:keys [not-null? has-default?]}]
+  (and not-null?
+       (not has-default?)))
 
 (defmacro define-tables
   "Define specs and register query info for the given tables and user defined types.
@@ -62,23 +70,30 @@
   as the composite type."
   [db & tables]
   (let [db (eval db)]
-
-    (doseq [[name kw] tables]
-      (swap! table-info-registry
-             assoc kw (table-info db name)))
     (let [table-info (into {}
                            (map (fn [[table-name table-keyword]]
-                                  [table-keyword
-                                   (-> (table-info db table-name)
-                                       (process-columns (name (namespace table-keyword))))]))
+                                  (let [ns (name (namespace table-keyword))]
+                                    [table-keyword
+                                     (-> (table-info db table-name)
+                                         (assoc :insert-spec-kw
+                                                (keyword ns (str (name table-keyword) "-insert")))
+                                         (process-columns ns))])))
                            tables)]
       (swap! table-info-registry merge table-info)
       `(do
-         ~@(for [[table-keyword {columns :columns :as table}] table-info]
+         ~@(for [[table-keyword {columns :columns
+                                 insert-spec-kw :insert-spec-kw :as table}] table-info
+                 :let [{required-insert true
+                        optional-insert false} (group-by (comp required-insert? second) columns)]]
              `(do
                 ;; Create the keys spec for the table
                 (s/def ~table-keyword
                   (s/keys :opt [~@(keys columns)]))
+
+                ;; Spec for a "full" row that has all NOT NULL values
+                (s/def ~insert-spec-kw
+                  (s/keys :req [~@(keys required-insert)]
+                          :opt [~@(keys optional-insert)]))
 
                 ;; Create specs for columns
                 ~@(for [[kw {type :type :as column}] columns
@@ -103,19 +118,44 @@
           (s/explain-str spec value))
   value)
 
+(defn fetch-columns
+  "Return a map of column alias to vector of [sql-accessor result-path]"
+  [table-info-registry table table-alias columns-set]
+  (let [table-columns (:columns (table-info-registry table))]
+    (reduce
+     (fn [cols column-kw]
+       (let [name (:name (table-columns column-kw))
+             composite-type-kw (composite-type name)]
+         (assert name (str "Unknown column " column-kw " for table " table))
+         (if composite-type-kw
+           ;; This field is a composite type, add "(field).subfield" accessors
+           ;; for each field in the type
+           (merge cols
+                  (into {}
+                        (map (fn [[field-kw field]]
+                               [(keyword (gensym (subs name 0 2)))
+                                [(str "(" table-alias ".\"" name "\").\"" (:name field) "\"")
+                                 [column-kw field-kw]]]))
+                        (:columns (table-info-registry composite-type-kw))))
+           ;; A regular field
+           (assoc cols
+                  (keyword (gensym (subs name 0 2)))
+                  [(str table-alias ".\"" name "\"") column-kw]))))
+     {} columns-set)))
+
+(defn sql-columns-list [cols]
+  (str/join ", "
+            (map (fn [[col-alias [col-name _]]]
+                   (str col-name " AS " (name col-alias)))
+                 cols)))
+
 (defmacro fetch [db table columns where]
-  (let [{table-name :name table-columns :columns :as table-info}
-        (@table-info-registry table)]
+  (let [table-info-registry @table-info-registry
+        {table-name :name table-columns :columns :as table-info}
+        (table-info-registry table)]
     (assert table-info (str "Unknown table " table ", call define-tables!"))
     (let [alias (gensym (subs table-name 0 2))
-          cols (reduce (fn [cols column-kw]
-                         (let [name (:name (table-columns column-kw))]
-                           (assert name (str "Unknown column " column-kw " for table " table))
-                           (println "COLS: " cols)
-                           (assoc cols
-                                  (keyword (gensym (subs name 0 2)))
-                                  [name column-kw])))
-                       {} columns)
+          cols (fetch-columns table-info-registry table alias columns)
 
           where (map (fn [[column-keyword value-form]]
                        (let [col-name (:name (column-keyword table-columns))]
@@ -124,16 +164,15 @@
                           `(assert-spec ~column-keyword ~value-form)]))
                      where)
           sql (str "SELECT "
-                   (str/join ", "
-                             (map (fn [[col-alias [col-name _]]]
-                                    (str alias "." col-name " AS " (name col-alias)))
-                                  cols))
+                   (sql-columns-list cols)
                    " FROM " table-name " " alias
-                   " WHERE "
-                   (str/join " AND "
-                             (map (comp #(str alias "." % " = ?") first)
-                                  where)))
+                   (when-not (empty? where)
+                     (str " WHERE "
+                          (str/join " AND "
+                                    (map (comp #(str alias "." % " = ?") first)
+                                         where)))))
           row (gensym "row")]
+      (println "SQL: " sql)
       `(let [~@(mapcat (fn [[_ sym value-form]]
                          [sym value-form])
                        where)]
@@ -141,13 +180,48 @@
             ;; Generate a row processing function that turns the column aliases
             ;; to the namespaced keys we want.
             (fn [~row]
-              (hash-map
-               ~@(mapcat
-                  (fn [[resultset-kw [_ output-kw]]]
-                    ;; PENDING: read composite record types here
-                    ;; or create columns that access all subfields
-                    [output-kw (list resultset-kw row)])
-                  cols)))
+              (-> {}
+                  ~@(for [[resultset-kw [_ output-path]] cols]
+                      (if (keyword? output-path)
+                        `(assoc ~output-path (~resultset-kw ~row))
+                        `(assoc-in ~output-path (~resultset-kw ~row))))))
 
             ;; Query the generated SQL with the where map arguments
             (jdbc/query ~db [~sql ~@(map second where)]))))))
+
+(defn insert!
+  "Insert a record to the given table. Returns the inserted record with the
+  (possibly generated) primary keys added."
+  [db table-kw record]
+  (let [table-info-registry @table-info-registry
+        {table-name :name columns :columns
+         insert-spec :insert-spec-kw :as table}
+        (table-info-registry table-kw)]
+    (assert table (str "Unknown table " table ", call define-tables!"))
+    (assert-spec insert-spec record)
+    (let [primary-key-columns (into #{}
+                                    (keep (fn [[kw {pk? :primary-key?}]]
+                                            (when pk?
+                                              kw))
+                                          columns))
+          alias (gensym "ins")
+          cols (fetch-columns table-info-registry table-kw alias primary-key-columns)
+          _ (println "COLS " (pr-str cols))
+          record-seq (seq record)
+          _ (println (pr-str record-seq))
+          columns-to-insert (into []
+                                  (comp (map first)
+                                        (filter #(contains? columns %))
+                                        (map columns))
+                                  record-seq)
+          sql (str "INSERT INTO " table-name " AS " alias " ("
+                   (str/join ", " (map :name columns-to-insert)) ") "
+                   "VALUES (" (str/join "," (repeat (count columns-to-insert) "?")) ") "
+                   "RETURNING " (sql-columns-list cols))
+          sql-and-params (into [sql]
+                               (map second record-seq))]
+      (let [result (first (jdbc/query db sql-and-params))]
+        (reduce (fn [record [resultset-kw [_ output-kw]]]
+                  (assoc record output-kw (result resultset-kw)))
+                record
+                cols)))))

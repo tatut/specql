@@ -21,7 +21,7 @@ CREATE TABLE department (
 
 CREATE TABLE employee (
   id serial primary key,
-  name varchar,
+  name varchar NOT NULL,
   title varchar,
   department integer REFERENCES department (id),
   address address
@@ -39,4 +39,5 @@ VALUES (1, 'R&D');
 
 INSERT
   INTO employee (name, title, department, address)
-VALUES ('Wile E. Coyote', 'Super genious', 1, '(Desert avenue 1, 31173, US)'::address);
+VALUES ('Wile E. Coyote', 'Super genious', 1, '(Desert avenue 1,31173,US)'::address),
+       ('Max Syöttöpaine', 'über consultant', 1, '(Kujatie 2,90100,FI)'::address);

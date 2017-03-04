@@ -30,10 +30,15 @@ You can then query for rows by giving a table, the keys to return and a map of k
        ;; The table to query from
        :employee/employees
        ;; the columns to return
-       #{:employee/id :employee/name :employee/title}
+       #{:employee/id :employee/name :employee/title :employee/address}
        ;; the where clause
        {::employee/id 1})
-;; => ({:employee/id 1 :employee/name "Wile E. Coyote" :employee/title "Super genius"})
+;; => ({:employee/id 1
+;;      :employee/name "Wile E. Coyote"
+;;      :employee/title "Super genius"
+;;      :employee/address {:address/street "Desert avenue 1"
+;;                         :address/postal-code "31173"
+;;                         :address/country "US"}})
 
 ```
 
@@ -42,10 +47,11 @@ You can then query for rows by giving a table, the keys to return and a map of k
 This is very much still work in progress.
 
 Features I intend to implement:
-* update and insert
+* update
+* ~~insert~~
 * JOIN navigation (add [:employee/department #{:department/name :department/id}] to JOIN the department table and fetch name and id keys as a nested map)
 * standard operators for where  ({:employee/name (like "%Smith%")})
-* unpacking composite types (user defined record types as column values should be nested maps)
+* ~~unpacking composite types (user defined record types as column values should be nested maps)~~
 
 # non-issues
 

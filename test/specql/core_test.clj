@@ -1,6 +1,6 @@
 (ns specql.core-test
-  (:require [specql.core :refer [define-tables fetch]]
-            [clojure.test :as t :refer [deftest is]]
+  (:require [specql.core :refer [define-tables fetch insert!]]
+            [clojure.test :as t :refer [deftest is testing]]
             [specql.embedded-postgres :refer [with-db datasource db]]
             [clojure.java.jdbc :as jdbc]
             [clojure.string :as str]
@@ -54,3 +54,47 @@
          (fetch db :employee/employees
                 #{:employee/name}
                 {:employee/id x})))))
+
+(deftest composite-type-unpacking
+  (is (= #:employee{:name "Wile E. Coyote"
+                    :address #:address{:street "Desert avenue 1" :postal-code "31173" :country "US"}}
+         (first
+          (fetch db :employee/employees
+                 #{:employee/name :employee/address}
+                 {:employee/id 1})))))
+
+(deftest inserting
+  (testing "count before newly inserted rows"
+    (is (= 2 (count (fetch db :employee/employees
+                           #{:employee/id}
+                           {})))))
+
+  (testing "inserting two new employees"
+    (is (= 3 (:employee/id (insert! db :employee/employees
+                                    {:employee/name "Foo"}))))
+    (is (= 4 (:employee/id (insert! db :employee/employees
+                                    {:employee/name "Bar"})))))
+
+  (testing "trying to insert invalid data"
+    ;; Name field is NOT NULL, so insertion should fail
+    (is (thrown-with-msg?
+         AssertionError #"contains\? % :employee/name"
+         (insert! db :employee/employees
+                  {:employee/title "I have no name!"})))
+
+    (is (thrown-with-msg?
+         AssertionError #"val: 42 fails spec"
+         (insert! db :employee/employees
+                  {:employee/name "Foo"
+                   :employee/title 42}))))
+
+  (testing "querying for the new employees"
+    (is (= #:employee{:id 3 :name "Foo"}
+           (first (fetch db :employee/employees
+                         #{:employee/id :employee/name}
+                         {:employee/id 3})))))
+
+  (testing "count after insertions"
+    (is (= 4 (count (fetch db :employee/employees
+                           #{:employee/id}
+                           {}))))))

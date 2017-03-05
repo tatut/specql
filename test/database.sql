@@ -45,3 +45,12 @@ INSERT
 VALUES ('Wile E. Coyote', 'Super genious', 1, '(Desert avenue 1,31173,US)'::address, '1949-09-17'::date, NULL),
        ('Max Syöttöpaine', 'über consultant', 1, '(Kujatie 2,90100,FI)'::address, '2017-01-01'::date, NULL),
        ('Foo Barsky', 'metasyntactic checker', 1, NULL, '2010-07-07'::date, '2016-12-31'::date);
+
+
+CREATE TABLE typetest (
+ int integer NOT NULL,
+ numeric numeric NOT NULL,
+ text text NOT NULL,
+ date date NOT NULL,
+ bool bool NOT NULL
+);

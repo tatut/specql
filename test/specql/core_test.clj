@@ -5,7 +5,8 @@
             [specql.embedded-postgres :refer [with-db datasource db]]
             [clojure.java.jdbc :as jdbc]
             [clojure.string :as str]
-            [clojure.spec :as s]))
+            [clojure.spec :as s]
+            [clojure.spec.test :as stest]))
 
 
 (t/use-fixtures :each with-db)
@@ -16,7 +17,8 @@
   ["address" :address/address]
   ["employee" :employee/employees]
   ["company" :company/companies]
-  ["department" :department/departments])
+  ["department" :department/departments]
+  ["typetest" :typetest/table])
 
 (deftest tables-have-been-created
   ;; If test data has been inserted, we know that all tables were create
@@ -175,3 +177,33 @@
                       #{:employee/name}
                       {:employee/name (op/and (op/like "%a%")
                                               (op/like "%x%"))})))))
+
+(defn typetest [in]
+  (let [inserted (insert! db :typetest/table in)
+        queried (first
+                 (fetch db :typetest/table
+                        #{:typetest/int :typetest/numeric
+                          :typetest/text :typetest/date
+                          :typetest/bool}
+                        {}))]
+    (jdbc/execute! db "DELETE FROM typetest")
+    queried))
+
+(s/fdef typetest
+        :args (s/cat :in :typetest/table-insert)
+        :ret :typetest/table-insert
+        :fn #(and
+              ;; other than dates, the maps are identical
+              (= (dissoc (:in (:args %))
+                         :typetest/date)
+                 (dissoc (:ret %)
+                         :typetest/date))
+              ;; dates are on the same day
+              (apply = (map (comp (juxt :date :month :year) bean :typetest/date)
+                            (list (:in (:args %))
+                                  (:ret %))))
+              ))
+
+(deftest typetest-generate-and-query
+  (is (= {:total 1 :check-passed 1}
+         (stest/summarize-results (stest/check `typetest)))))

@@ -106,11 +106,8 @@
 
                 ;; Create specs for columns
                 ~@(for [[kw {type :type :as column}] columns
-                        :let [type-spec (case type
-                                          "int4" ::d/integer
-                                          "varchar" ::d/text
-                                          ;; FIXME: moar types!
-                                          (composite-type type))]
+                        :let [type-spec (or (composite-type type)
+                                            (keyword "specql.data-types" type))]
                         :when type-spec]
                     `(s/def ~kw ~type-spec))))))))
 
@@ -211,7 +208,7 @@
                    (when-not (str/blank? where-clause)
                      (str " WHERE " where-clause)))
           row (gensym "row")]
-      (println "SQL: " (pr-str (into [sql] where-parameters)))
+      ;(println "SQL: " (pr-str (into [sql] where-parameters)))
       (map
        ;; Process each row and remap the columns
        ;; to the namespaced keys we want.
@@ -273,18 +270,23 @@
                                               kw))
                                           columns))
           alias (gensym "ins")
-          cols (fetch-columns table-info-registry table-kw alias primary-key-columns)
+          cols (when-not (empty? primary-key-columns)
+                 (fetch-columns table-info-registry table-kw alias primary-key-columns))
           [column-names value-names value-parameters]
           (insert-columns-and-values table-info-registry table-kw record)
 
           sql (str "INSERT INTO " table-name " AS " alias " ("
                    (str/join ", " (map #(str "\"" % "\"") column-names)) ") "
                    "VALUES (" (str/join "," value-names) ") "
-                   "RETURNING " (sql-columns-list cols))
+                   (when cols
+                     (str "RETURNING " (sql-columns-list cols))))
           sql-and-params (into [sql] value-parameters)]
-      (println "SQL: " (pr-str sql-and-params))
-      (let [result (first (jdbc/query db sql-and-params))]
-        (reduce (fn [record [resultset-kw [_ output-kw]]]
-                  (assoc record output-kw (result resultset-kw)))
-                record
-                cols)))))
+      ;(println "SQL: " (pr-str sql-and-params))
+      (if (empty? primary-key-columns)
+        (do (jdbc/execute! db sql-and-params)
+            record)
+        (let [result (first (jdbc/query db sql-and-params))]
+          (reduce (fn [record [resultset-kw [_ output-kw]]]
+                    (assoc record output-kw (result resultset-kw)))
+                  record
+                  cols))))))

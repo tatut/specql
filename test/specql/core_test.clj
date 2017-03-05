@@ -94,7 +94,31 @@
                          #{:employee/id :employee/name}
                          {:employee/id 3})))))
 
+  (testing "insert record with composite value"
+    (let [addr #:address {:street "somestreet 123"
+                          :postal-code "90123"
+                          :country "US"}]
+      (is (= 5 (:employee/id
+                (insert! db :employee/employees
+                         {:employee/name "Quux"
+                          :employee/address addr}))))
+
+      ;; Read the address back and verify it was properly saved
+      (is (= addr (:employee/address
+                   (first
+                    (fetch db :employee/employees
+                           #{:employee/address}
+                           {:employee/id 5})))))
+
+      ;; Check that validation failures in composite types are detected
+      (is (thrown-with-msg?
+           AssertionError #"val: 666 fails"
+           (insert! db :employee/employees
+                    {:employee/name "Frob"
+                     :employee/address (assoc addr
+                                              :address/postal-code 666)})))))
+
   (testing "count after insertions"
-    (is (= 4 (count (fetch db :employee/employees
+    (is (= 5 (count (fetch db :employee/employees
                            #{:employee/id}
                            {}))))))

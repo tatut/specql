@@ -102,6 +102,7 @@
                         :let [type-spec (case type
                                           "int4" ::d/integer
                                           "varchar" ::d/text
+                                          ;; FIXME: moar types!
                                           (composite-type type))]
                         :when type-spec]
                     `(s/def ~kw ~type-spec))))))))
@@ -173,7 +174,7 @@
                                     (map (comp #(str alias "." % " = ?") first)
                                          where)))))
           row (gensym "row")]
-      (println "SQL: " sql)
+      ;(println "SQL: " sql)
       (map
        ;; Process each row and remap the columns
        ;; to the namespaced keys we want.
@@ -236,7 +237,6 @@
                                           columns))
           alias (gensym "ins")
           cols (fetch-columns table-info-registry table-kw alias primary-key-columns)
-          _ (println "COLS " (pr-str cols))
           [column-names value-names value-parameters]
           (insert-columns-and-values table-info-registry table-kw record)
 
@@ -245,7 +245,6 @@
                    "VALUES (" (str/join "," value-names) ") "
                    "RETURNING " (sql-columns-list cols))
           sql-and-params (into [sql] value-parameters)]
-      (println "INSERT: " (pr-str sql-and-params))
       (let [result (first (jdbc/query db sql-and-params))]
         (reduce (fn [record [resultset-kw [_ output-kw]]]
                   (assoc record output-kw (result resultset-kw)))

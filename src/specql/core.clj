@@ -79,8 +79,10 @@
                                                 (keyword ns (str (name table-keyword) "-insert")))
                                          (process-columns ns))])))
                            tables)]
-      (swap! table-info-registry merge table-info)
+
       `(do
+         ;; Register table info so that it is available at runtime
+         (swap! table-info-registry merge ~table-info)
          ~@(for [[table-keyword {columns :columns
                                  insert-spec-kw :insert-spec-kw :as table}] table-info
                  :let [{required-insert true
@@ -149,7 +151,7 @@
                    (str col-name " AS " (name col-alias)))
                  cols)))
 
-(defmacro fetch [db table columns where]
+(defn fetch [db table columns where]
   (let [table-info-registry @table-info-registry
         {table-name :name table-columns :columns :as table-info}
         (table-info-registry table)]
@@ -160,8 +162,7 @@
           where (map (fn [[column-keyword value-form]]
                        (let [col-name (:name (column-keyword table-columns))]
                          [col-name
-                          (gensym (subs col-name 0 1))
-                          `(assert-spec ~column-keyword ~value-form)]))
+                          (assert-spec column-keyword value-form)]))
                      where)
           sql (str "SELECT "
                    (sql-columns-list cols)
@@ -173,21 +174,50 @@
                                          where)))))
           row (gensym "row")]
       (println "SQL: " sql)
-      `(let [~@(mapcat (fn [[_ sym value-form]]
-                         [sym value-form])
-                       where)]
-         (map
-            ;; Generate a row processing function that turns the column aliases
-            ;; to the namespaced keys we want.
-            (fn [~row]
-              (-> {}
-                  ~@(for [[resultset-kw [_ output-path]] cols]
-                      (if (keyword? output-path)
-                        `(assoc ~output-path (~resultset-kw ~row))
-                        `(assoc-in ~output-path (~resultset-kw ~row))))))
+      (map
+       ;; Process each row and remap the columns
+       ;; to the namespaced keys we want.
+       (fn [resultset-row]
+         (reduce (fn [row [resultset-kw [_ output-path]]]
+                   (let [v (resultset-kw resultset-row)]
+                     (if (keyword? output-path)
+                       (assoc row output-path v)
+                       (assoc-in row output-path v))))
+                 {}
+                 cols))
 
-            ;; Query the generated SQL with the where map arguments
-            (jdbc/query ~db [~sql ~@(map second where)]))))))
+       ;; Query the generated SQL with the where map arguments
+       (jdbc/query db (into [sql] (map second) where))))))
+
+(defn- insert-columns-and-values [table-info-registry table record]
+  (let [table-columns (:columns (table-info-registry table))]
+    (loop [names []
+           value-names []
+           value-parameters []
+           [[column-kw value] & columns] (seq record)]
+      (let [column (table-columns column-kw)]
+        (if-not column
+          [names value-names value-parameters]
+          (if-let [composite-type-kw (composite-type table-info-registry (:type column))]
+            ;; This is a composite type, add ROW(?,...)::type value
+            (let [composite-type (table-info-registry composite-type-kw)
+                  composite-columns (:columns composite-type)]
+              (recur (conj names (:name column))
+                     (conj value-names
+                           (str "ROW("
+                                (str/join "," (repeat (count composite-columns) "?"))
+                                ")::"
+                                (:name composite-type)))
+                     ;; Get all values in order and add to parameter value
+                     (into value-parameters
+                           (map (comp (partial get value) first)
+                                (sort-by (comp :number second) composite-columns)))
+                     columns))
+            ;; Normal value, add name and value
+            (recur (conj names (:name column))
+                   (conj value-names "?")
+                   (conj value-parameters value)
+                   columns)))))))
 
 (defn insert!
   "Insert a record to the given table. Returns the inserted record with the
@@ -207,19 +237,15 @@
           alias (gensym "ins")
           cols (fetch-columns table-info-registry table-kw alias primary-key-columns)
           _ (println "COLS " (pr-str cols))
-          record-seq (seq record)
-          _ (println (pr-str record-seq))
-          columns-to-insert (into []
-                                  (comp (map first)
-                                        (filter #(contains? columns %))
-                                        (map columns))
-                                  record-seq)
+          [column-names value-names value-parameters]
+          (insert-columns-and-values table-info-registry table-kw record)
+
           sql (str "INSERT INTO " table-name " AS " alias " ("
-                   (str/join ", " (map :name columns-to-insert)) ") "
-                   "VALUES (" (str/join "," (repeat (count columns-to-insert) "?")) ") "
+                   (str/join ", " column-names) ") "
+                   "VALUES (" (str/join "," value-names) ") "
                    "RETURNING " (sql-columns-list cols))
-          sql-and-params (into [sql]
-                               (map second record-seq))]
+          sql-and-params (into [sql] value-parameters)]
+      (println "INSERT: " (pr-str sql-and-params))
       (let [result (first (jdbc/query db sql-and-params))]
         (reduce (fn [record [resultset-kw [_ output-kw]]]
                   (assoc record output-kw (result resultset-kw)))

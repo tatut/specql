@@ -24,20 +24,24 @@ CREATE TABLE employee (
   name varchar NOT NULL,
   title varchar,
   department integer REFERENCES department (id),
-  address address
+  address address,
+  "employment-started" DATE NOT NULL,
+  "employment-ended" DATE
 );
 
 -- Insert some data
 
 INSERT
   INTO company (name, "visiting-address", "billing-address")
-VALUES ('Acme Inc', '("some street 1", "90120", "FI")'::address, '("other street 42", "424242", "FI")'::address);
+VALUES ('Acme Inc', '("some street 1","90120","FI")'::address, '("other street 42","424242","FI")'::address),
+       ('Omni Consumer Products', '(kujatie 1,90999,FI)'::address, NULL);
 
 INSERT
   INTO department (company, name)
 VALUES (1, 'R&D');
 
 INSERT
-  INTO employee (name, title, department, address)
-VALUES ('Wile E. Coyote', 'Super genious', 1, '(Desert avenue 1,31173,US)'::address),
-       ('Max Syöttöpaine', 'über consultant', 1, '(Kujatie 2,90100,FI)'::address);
+  INTO employee (name, title, department, address, "employment-started", "employment-ended")
+VALUES ('Wile E. Coyote', 'Super genious', 1, '(Desert avenue 1,31173,US)'::address, '1949-09-17'::date, NULL),
+       ('Max Syöttöpaine', 'über consultant', 1, '(Kujatie 2,90100,FI)'::address, '2017-01-01'::date, NULL),
+       ('Foo Barsky', 'metasyntactic checker', 1, NULL, '2010-07-07'::date, '2016-12-31'::date);

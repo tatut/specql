@@ -2,7 +2,14 @@
   (:require [clojure.java.jdbc :as jdbc]
             [clojure.spec :as s]
             [specql.data-types :as d]
-            [clojure.string :as str]))
+            [clojure.string :as str]
+            [specql.op :as op]))
+
+;; Extend java.util.Date to be a SQL date parameter
+(extend-protocol jdbc/ISQLValue
+  java.util.Date
+  (sql-value [dt]
+    (java.sql.Date. (.getTime dt))))
 
 (s/def ::column-info (s/keys :req [::column-name ::data-type ::table-name]))
 
@@ -152,6 +159,41 @@
                    (str col-name " AS " (name col-alias)))
                  cols)))
 
+(defn- sql-where [table-info-registry table alias record]
+  (let [table-columns (-> table table-info-registry :columns)
+        add-where (fn [{:keys [:clause :parameters] :as where} column-accessor column-keyword value]
+                    (if (satisfies? op/Op value)
+                      ;; This is an operator, call to-sql to create SQL clause and params
+                      (let [[cl params] (op/to-sql value column-accessor)]
+                        (assoc where
+                               :clause (conj clause cl)
+                               :parameters (into parameters params)))
+                      ;; Plain old value, assert that it is valid and create = comparison
+                      (assoc where
+                             :clause (conj clause (str column-accessor " = ?"))
+                             :parameters (conj parameters (assert-spec column-keyword value)))))]
+    (as-> (reduce
+           (fn [where [column-keyword value]]
+             (let [{col-name :name :as column} (column-keyword table-columns)]
+               (if-let [composite-columns (some->> column :type
+                                                   (composite-type table-info-registry)
+                                                   table-info-registry
+                                                   :columns)]
+                 ;; composite type: add all fields as separate clauses
+                 (reduce (fn [where [kw val]]
+                           (add-where where
+                                      (str "(" alias ".\"" col-name "\").\""
+                                           (:name (composite-columns kw)) "\"")
+                                      kw val))
+                         where value)
+
+                 ;; normal column
+                 (add-where where (str alias ".\"" col-name "\"") column-keyword value))))
+           {:clause [] :parameters []}
+           record) w
+      (update w :clause #(str/join " AND " %))
+      ((juxt :clause :parameters) w))))
+
 (defn fetch [db table columns where]
   (let [table-info-registry @table-info-registry
         {table-name :name table-columns :columns :as table-info}
@@ -160,21 +202,16 @@
     (let [alias (gensym (subs table-name 0 2))
           cols (fetch-columns table-info-registry table alias columns)
 
-          where (map (fn [[column-keyword value-form]]
-                       (let [col-name (:name (column-keyword table-columns))]
-                         [col-name
-                          (assert-spec column-keyword value-form)]))
-                     where)
+          [where-clause where-parameters]
+          (sql-where table-info-registry table alias where)
+
           sql (str "SELECT "
                    (sql-columns-list cols)
                    " FROM " table-name " " alias
-                   (when-not (empty? where)
-                     (str " WHERE "
-                          (str/join " AND "
-                                    (map (comp #(str alias "." % " = ?") first)
-                                         where)))))
+                   (when-not (str/blank? where-clause)
+                     (str " WHERE " where-clause)))
           row (gensym "row")]
-      ;(println "SQL: " sql)
+      (println "SQL: " (pr-str (into [sql] where-parameters)))
       (map
        ;; Process each row and remap the columns
        ;; to the namespaced keys we want.
@@ -188,7 +225,7 @@
                  cols))
 
        ;; Query the generated SQL with the where map arguments
-       (jdbc/query db (into [sql] (map second) where))))))
+       (jdbc/query db (into [sql] where-parameters))))))
 
 (defn- insert-columns-and-values [table-info-registry table record]
   (let [table-columns (:columns (table-info-registry table))]
@@ -241,10 +278,11 @@
           (insert-columns-and-values table-info-registry table-kw record)
 
           sql (str "INSERT INTO " table-name " AS " alias " ("
-                   (str/join ", " column-names) ") "
+                   (str/join ", " (map #(str "\"" % "\"") column-names)) ") "
                    "VALUES (" (str/join "," value-names) ") "
                    "RETURNING " (sql-columns-list cols))
           sql-and-params (into [sql] value-parameters)]
+      (println "SQL: " (pr-str sql-and-params))
       (let [result (first (jdbc/query db sql-and-params))]
         (reduce (fn [record [resultset-kw [_ output-kw]]]
                   (assoc record output-kw (result resultset-kw)))

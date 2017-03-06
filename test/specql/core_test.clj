@@ -25,7 +25,10 @@
                                                        :employee/employees
                                                        :employee/department)}]
   ["quark" :enum/quark] ;; an enum type
-  ["typetest" :typetest/table])
+  ["typetest" :typetest/table]
+
+  ;; a view is also a table
+  ["department-employees" :dep-employees/view])
 
 (deftest tables-have-been-created
   ;; If test data has been inserted, we know that all tables were create
@@ -215,6 +218,14 @@
 (deftest typetest-generate-and-query
   (is (= {:total 1 :check-passed 1}
          (stest/summarize-results (stest/check `typetest)))))
+
+(deftest view-query
+  (is (= (list #:dep-employees{:id 1 :name "R&D" :employee-count 3})
+         (fetch db :dep-employees/view
+                #{:dep-employees/id
+                  :dep-employees/name
+                  :dep-employees/employee-count}
+                {}))))
 
 #_(deftest join-has-one
   (is (= #:employee {:name "Wile E. Coyote"

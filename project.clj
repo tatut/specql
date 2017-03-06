@@ -7,4 +7,5 @@
 
   :source-paths ["src"]
   :test-paths ["test"]
-  :jvm-opts ["-Duser.timezone=GMT"])
+  :jvm-opts ["-Duser.timezone=GMT"]
+  :monkeypatch-clojure-test false)

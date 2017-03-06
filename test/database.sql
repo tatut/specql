@@ -58,3 +58,12 @@ CREATE TABLE typetest (
  bool bool NOT NULL,
  q quark
 );
+
+
+CREATE VIEW "department-employees" AS
+  SELECT d.id,
+         d.name,
+	 (SELECT COUNT(e.id)
+	    FROM employee e
+	   WHERE e.department = d.id) AS "employee-count"
+    FROM department d;

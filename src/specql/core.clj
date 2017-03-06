@@ -3,7 +3,8 @@
             [clojure.spec :as s]
             [specql.data-types :as d]
             [clojure.string :as str]
-            [specql.op :as op]))
+            [specql.op :as op]
+            [specql.rel :as rel]))
 
 ;; Extend java.util.Date to be a SQL date parameter
 (extend-protocol jdbc/ISQLValue
@@ -19,24 +20,43 @@
                     "attr.atthasdef AS \"has-default?\","
                     "t.typname AS type, "
                     "EXISTS(SELECT indkey FROM pg_catalog.pg_index i "
-                    "        WHERE i.indrelid=attr.attrelid AND attr.attnum=ANY(i.indkey) AND i.indisprimary=TRUE) AS \"primary-key?\""
+                    "        WHERE i.indrelid=attr.attrelid AND attr.attnum=ANY(i.indkey) AND i.indisprimary=TRUE) AS \"primary-key?\","
+                    "EXISTS(SELECT e.enumtypid FROM pg_catalog.pg_enum e WHERE e.enumtypid = t.oid) AS \"enum?\""
                     "FROM pg_catalog.pg_attribute attr "
                     "JOIN pg_catalog.pg_class cls ON attr.attrelid = cls.oid "
                     "JOIN pg_catalog.pg_type t ON attr.atttypid = t.oid "
                     "WHERE cls.relname = ? AND attnum > 0"))
+(def enum-values-q (str "SELECT e.enumlabel AS value"
+                        "  FROM pg_type t"
+                        "       JOIN pg_enum e ON t.oid = e.enumtypid"
+                        "       JOIN pg_catalog.pg_namespace n ON n.oid = t.typnamespace"
+                        " WHERE t.typname=?"))
+
+(defn- enum-values [db enum-type-name]
+  (into #{}
+        (map :value)
+        (jdbc/query db [enum-values-q enum-type-name])))
 
 (defn- table-info [db name]
   (let [relkind (-> (jdbc/query db [relkind-q name])
-                    first :relkind)
-        columns (jdbc/query db [columns-q name])]
-    {:name name
-     :type (case relkind
-             "c" :composite
-             "r" :table)
-     :columns (into {}
-                    (map (juxt :name identity))
-                    columns)})
-  #_(jdbc/query db ["SELECT column_name, data_type, is_identity, is_nullable FROM information_schema.columns WHERE table_name=?" name]))
+                    first :relkind)]
+    (if (empty? relkind)
+      ;; Not a table or composite type, try an enum
+      (let [values (enum-values db name)]
+        (assert (not (empty? values))
+                (str "Don't know what " name " is. Not a table, composite type or enum."))
+        {:name name
+         :type :enum
+         :values values})
+
+      (let [columns (jdbc/query db [columns-q name])]
+        {:name name
+         :type (case relkind
+                 "c" :composite
+                 "r" :table)
+         :columns (into {}
+                        (map (juxt :name identity))
+                        columns)}))))
 
 
 (defonce table-info-registry (atom {}))
@@ -55,6 +75,16 @@
   ([table-info-registry name]
    (some (fn [[key {n :name t :type}]]
            (and (= :composite t)
+                (= name n)
+                key))
+         table-info-registry)))
+
+(defn- enum-type
+  "Find an enum type from registry by name."
+  ([name] (enum-type @table-info-registry name))
+  ([table-info-registry name]
+   (some (fn [[key {n :name t :type}]]
+           (and (= :enum t)
                 (= name n)
                 key))
          table-info-registry)))
@@ -78,13 +108,14 @@
   [db & tables]
   (let [db (eval db)]
     (let [table-info (into {}
-                           (map (fn [[table-name table-keyword]]
+                           (map (fn [[table-name table-keyword rel]]
                                   (let [ns (name (namespace table-keyword))]
                                     [table-keyword
                                      (-> (table-info db table-name)
                                          (assoc :insert-spec-kw
                                                 (keyword ns (str (name table-keyword) "-insert")))
-                                         (process-columns ns))])))
+                                         (process-columns ns)
+                                         (assoc :rel rel))])))
                            tables)]
 
       `(do
@@ -94,29 +125,30 @@
                                  insert-spec-kw :insert-spec-kw :as table}] table-info
                  :let [{required-insert true
                         optional-insert false} (group-by (comp required-insert? second) columns)]]
-             `(do
-                ;; Create the keys spec for the table
-                (s/def ~table-keyword
-                  (s/keys :opt [~@(keys columns)]))
+             (if (= :enum (:type table))
+               `(s/def ~table-keyword ~(:values table))
+               `(do
+                  ;; Create the keys spec for the table
+                  (s/def ~table-keyword
+                    (s/keys :opt [~@(keys columns)]))
 
-                ;; Spec for a "full" row that has all NOT NULL values
-                (s/def ~insert-spec-kw
-                  (s/keys :req [~@(keys required-insert)]
-                          :opt [~@(keys optional-insert)]))
+                  ;; Spec for a "full" row that has all NOT NULL values
+                  (s/def ~insert-spec-kw
+                    (s/keys :req [~@(keys required-insert)]
+                            :opt [~@(keys optional-insert)]))
 
-                ;; Create specs for columns
-                ~@(for [[kw {type :type :as column}] columns
-                        :let [type-spec (or (composite-type type)
-                                            (keyword "specql.data-types" type))]
-                        :when type-spec]
-                    `(s/def ~kw ~type-spec))))))))
-
-#_(define-tables db
-  ["department" :department/departments])
-
-#_(fetch :department/departments
-       #{:department/id :department/name [:department/parent :department/name]}
-       (match :deparment/id))
+                  ;; Create specs for columns
+                  ~@(for [[kw {type :type :as column}] columns
+                          :let [type-spec (or (composite-type table-info type)
+                                              (and (:enum? column)
+                                                   (or
+                                                    ;; previously registered enum type
+                                                    (enum-type table-info type)
+                                                    ;; just the values as spec
+                                                    (enum-values db type)))
+                                              (keyword "specql.data-types" type))]
+                          :when type-spec]
+                      `(s/def ~kw ~type-spec)))))))))
 
 (defn assert-spec
   "Unconditionally assert that value is valid for spec. Returns value."
@@ -146,7 +178,7 @@
                         (:columns (table-info-registry composite-type-kw))))
            ;; A regular field
            (assoc cols
-                  (keyword (gensym (subs name 0 2)))
+                  (keyword (gensym (subs name 0 1)))
                   [(str table-alias ".\"" name "\"") column-kw]))))
      {} columns-set)))
 
@@ -206,12 +238,68 @@
         (update w :clause #(str/join " AND " %))
         ((juxt :clause :parameters) w)))))
 
+(defn- gen-alias []
+  (let [alias (volatile! 0)]
+    (fn [named]
+      (let [n (name named)]
+        (str (subs n 0 (min (count n) 3))
+             (vswap! alias inc))))))
+
+(defn- fetch-tables
+  "Determine all tables to query from. JOINs tables indicated by columns.
+  Returns a vector tables and aliases with join clauses:
+  [[:main/table \"mai1\" nil nil #{...cols for main table...}]
+   [:other/table \"oth2\" :left [\"mai1.other = oth2.id\"] #{...cols for other table...}]]"
+  [table-info-registry alias-fn primary-table columns]
+  (let [{primary-table-columns :columns :as primary-table-info}
+        (table-info-registry primary-table)
+        primary-table-alias (alias-fn primary-table)]
+    (assert primary-table-info
+            (str "Unknown table " primary-table ", call define-tables!"))
+    (loop [;; start with the primary table and all fields that are not joins
+           table [[primary-table primary-table-alias nil nil
+                   (into #{}
+                         (remove vector?)
+                         columns)]]
+           ;; go throuh all JOINS
+           [c & cs] (filter vector? columns)]
+      (if-not c
+        ;; No more joins, return accumulated tables
+        table
+
+        ;; Join table
+        (let [[join-field join-table-columns] c
+              rel (-> table-info-registry
+                      primary-table
+                      :rel join-field)
+              this-table-column
+              (-> rel ::rel/this-table-column primary-table-columns)
+              join-type (if (:not-null? this-table-column)
+                          ;; NOT NULL field, do an inner join (pg default join)
+                          :join
+                          ;; May be NULL, do a left join
+                          :left-join)
+              other-table-alias (alias-fn (::rel/other-table rel))
+              other-table-columns (-> rel ::rel/other-table table-info-registry :columns)
+              other-table-column (-> rel ::rel/other-table-column other-table-columns)]
+          (recur (conj table
+                       [(::rel/other-table rel)
+                        other-table-alias
+                        join-type
+                        (str primary-table-alias ".\""
+                             (:name this-table-column) "\" = "
+                             other-table-alias ".\""
+                             (:name other-table-column) "\"")
+                        join-table-columns])
+                 cs))))))
 (defn fetch [db table columns where]
   (let [table-info-registry @table-info-registry
         {table-name :name table-columns :columns :as table-info}
         (table-info-registry table)]
     (assert table-info (str "Unknown table " table ", call define-tables!"))
-    (let [alias (gensym (subs table-name 0 2))
+    (let [alias-fn (gen-alias)
+          alias (gensym (subs table-name 0 1))
+          table-alias (fetch-tables table-info-registry alias-fn table columns)
           cols (fetch-columns table-info-registry table alias columns)
 
           [where-clause where-parameters]
@@ -230,9 +318,11 @@
        (fn [resultset-row]
          (reduce (fn [row [resultset-kw [_ output-path]]]
                    (let [v (resultset-kw resultset-row)]
-                     (if (keyword? output-path)
-                       (assoc row output-path v)
-                       (assoc-in row output-path v))))
+                     (if (nil? v)
+                       row
+                       (if (keyword? output-path)
+                         (assoc row output-path v)
+                         (assoc-in row output-path v)))))
                  {}
                  cols))
 
@@ -263,11 +353,19 @@
                            (map (comp (partial get value) first)
                                 (sort-by (comp :number second) composite-columns)))
                      columns))
-            ;; Normal value, add name and value
-            (recur (conj names (:name column))
-                   (conj value-names "?")
-                   (conj value-parameters value)
-                   columns)))))))
+
+            (if-let [enum-type-kw (enum-type table-info-registry (:type column))]
+              ;; Enum type, add value with ::enumtype cast
+              (recur (conj names (:name column))
+                     (conj value-names (str "?::" (:type column)))
+                     (conj value-parameters value)
+                     columns)
+
+              ;; Normal value, add name and value
+              (recur (conj names (:name column))
+                     (conj value-names "?")
+                     (conj value-parameters value)
+                     columns))))))))
 
 (defn insert!
   "Insert a record to the given table. Returns the inserted record with the

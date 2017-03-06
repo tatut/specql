@@ -1,6 +1,7 @@
 (ns specql.core-test
   (:require [specql.core :refer [define-tables fetch insert!]]
             [specql.op :as op]
+            [specql.rel :as rel]
             [clojure.test :as t :refer [deftest is testing]]
             [specql.embedded-postgres :refer [with-db datasource db]]
             [clojure.java.jdbc :as jdbc]
@@ -15,9 +16,15 @@
 
 (define-tables define-db
   ["address" :address/address]
-  ["employee" :employee/employees]
+  ["employee" :employee/employees {:employee/dep (rel/has-one :employee/department
+                                                              :department/departments
+                                                              :department/id)}]
   ["company" :company/companies]
-  ["department" :department/departments]
+  ["department" :department/departments {:department/employees
+                                         (rel/has-many :department/id
+                                                       :employee/employees
+                                                       :employee/department)}]
+  ["quark" :enum/quark] ;; an enum type
   ["typetest" :typetest/table])
 
 (deftest tables-have-been-created
@@ -185,7 +192,7 @@
                  (fetch db :typetest/table
                         #{:typetest/int :typetest/numeric
                           :typetest/text :typetest/date
-                          :typetest/bool}
+                          :typetest/bool :typetest/q}
                         {}))]
     (jdbc/execute! db "DELETE FROM typetest")
     queried))
@@ -208,3 +215,11 @@
 (deftest typetest-generate-and-query
   (is (= {:total 1 :check-passed 1}
          (stest/summarize-results (stest/check `typetest)))))
+
+#_(deftest join-has-one
+  (is (= #:employee {:name "Wile E. Coyote"
+                     :dep #:department {:id 1 :name "R&D"}}
+         (first
+          (fetch db :employee/employees
+                 #{:employee/name [:employee/dep #{:department/id :department/name}]}
+                 {:employee/id 1})))))

@@ -47,10 +47,14 @@ VALUES ('Wile E. Coyote', 'Super genious', 1, '(Desert avenue 1,31173,US)'::addr
        ('Foo Barsky', 'metasyntactic checker', 1, NULL, '2010-07-07'::date, '2016-12-31'::date);
 
 
+CREATE TYPE quark AS ENUM ('up', 'down','strange','charm','bottom','top');
+
+
 CREATE TABLE typetest (
  int integer NOT NULL,
  numeric numeric NOT NULL,
  text text NOT NULL,
  date date NOT NULL,
- bool bool NOT NULL
+ bool bool NOT NULL,
+ q quark
 );

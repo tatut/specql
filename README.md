@@ -50,7 +50,7 @@ Features I intend to implement:
 * update
 * ~~insert~~
 * JOIN navigation (add [:employee/department #{:department/name :department/id}] to JOIN the department table and fetch name and id keys as a nested map)
-* standard operators for where  ({:employee/name (like "%Smith%")})
+* ~~standard operators for where  ({:employee/name (like "%Smith%")})~~
 * ~~unpacking composite types (user defined record types as column values should be nested maps)~~
 
 # non-issues

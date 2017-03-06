@@ -151,32 +151,33 @@
                        #{:employee/id}
                        {:employee/employment-started (op/< #inst "1997-08-04T02:14:30.798-04:00")}))))
 
-  (is (= "Wile E. Coyote"
-         (:employee/name
-          (first
-           (fetch db :employee/employees
-                  #{:employee/name}
-                  {:employee/name (op/like "%yo%")})))))
+  (let [names #(into #{}
+                     (map :employee/name
+                          (fetch db :employee/employees
+                                 #{:employee/name}
+                                 %)))]
+    (is (= #{"Wile E. Coyote"}
+           (names {:employee/name (op/like "%yo%")})))
 
-  (is (= #{"Max Syöttöpaine" "Foo Barsky"}
-         (into #{} (map :employee/name)
-               (fetch db :employee/employees
-                      #{:employee/name}
-                      {:employee/name (op/not (op/like "%yo%"))}))))
+    (is (= #{"Max Syöttöpaine" "Foo Barsky"}
+           (names {:employee/name (op/not (op/like "%yo%"))})))
 
-  (is (= #{"Foo Barsky" "Wile E. Coyote"}
-         (into #{} (map :employee/name)
-               (fetch db :employee/employees
-                      #{:employee/name}
-                      {:employee/name (op/or (op/like "%yo%")
-                                             (op/like "%sky"))}))))
+    (is (= #{"Foo Barsky" "Wile E. Coyote"}
+           (names {:employee/name (op/or (op/like "%yo%")
+                                         (op/like "%sky"))})))
 
-  (is (= #{"Max Syöttöpaine"}
-         (into #{} (map :employee/name)
-               (fetch db :employee/employees
-                      #{:employee/name}
-                      {:employee/name (op/and (op/like "%a%")
-                                              (op/like "%x%"))})))))
+    (is (= #{"Max Syöttöpaine"}
+           (names {:employee/name (op/and (op/like "%a%")
+                                          (op/like "%x%"))})))
+
+    (is (= #{"Foo Barsky"}
+           (names {:employee/employment-ended op/not-null?})))
+
+    (testing "or works on whole maps"
+      (is (= #{"Wile E. Coyote" "Foo Barsky"}
+             (names (op/or
+                     {:employee/address {:address/country (op/in #{"US"})}}
+                     {:employee/employment-ended op/not-null?})))))))
 
 (defn typetest [in]
   (let [inserted (insert! db :typetest/table in)

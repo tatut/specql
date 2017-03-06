@@ -157,39 +157,54 @@
                  cols)))
 
 (defn- sql-where [table-info-registry table alias record]
-  (let [table-columns (-> table table-info-registry :columns)
-        add-where (fn [{:keys [:clause :parameters] :as where} column-accessor column-keyword value]
-                    (if (satisfies? op/Op value)
-                      ;; This is an operator, call to-sql to create SQL clause and params
-                      (let [[cl params] (op/to-sql value column-accessor)]
+  (if (op/combined-op? record)
+    ;; OR/AND on the top level
+    (let [{combine-with :combine-with records :ops} record]
+      (loop [sql []
+             params []
+             [record & records] records]
+        (if-not record
+          [(str "(" (str/join combine-with sql) ")")
+           params]
+          (let [[record-sql record-params]
+                (sql-where table-info-registry table alias record)]
+            (recur (conj sql record-sql)
+                   (into params record-params)
+                   records)))))
+    ;; Regular map of field to value
+    (let [table-columns (-> table table-info-registry :columns)
+          add-where (fn [{:keys [:clause :parameters] :as where} column-accessor column-keyword value]
+                      (if (satisfies? op/Op value)
+                        ;; This is an operator, call to-sql to create SQL clause and params
+                        (let [[cl params] (op/to-sql value column-accessor)]
+                          (assoc where
+                                 :clause (conj clause cl)
+                                 :parameters (into parameters params)))
+                        ;; Plain old value, assert that it is valid and create = comparison
                         (assoc where
-                               :clause (conj clause cl)
-                               :parameters (into parameters params)))
-                      ;; Plain old value, assert that it is valid and create = comparison
-                      (assoc where
-                             :clause (conj clause (str column-accessor " = ?"))
-                             :parameters (conj parameters (assert-spec column-keyword value)))))]
-    (as-> (reduce
-           (fn [where [column-keyword value]]
-             (let [{col-name :name :as column} (column-keyword table-columns)]
-               (if-let [composite-columns (some->> column :type
-                                                   (composite-type table-info-registry)
-                                                   table-info-registry
-                                                   :columns)]
-                 ;; composite type: add all fields as separate clauses
-                 (reduce (fn [where [kw val]]
-                           (add-where where
-                                      (str "(" alias ".\"" col-name "\").\""
-                                           (:name (composite-columns kw)) "\"")
-                                      kw val))
-                         where value)
+                               :clause (conj clause (str column-accessor " = ?"))
+                               :parameters (conj parameters (assert-spec column-keyword value)))))]
+      (as-> (reduce
+             (fn [where [column-keyword value]]
+               (let [{col-name :name :as column} (column-keyword table-columns)]
+                 (if-let [composite-columns (some->> column :type
+                                                     (composite-type table-info-registry)
+                                                     table-info-registry
+                                                     :columns)]
+                   ;; composite type: add all fields as separate clauses
+                   (reduce (fn [where [kw val]]
+                             (add-where where
+                                        (str "(" alias ".\"" col-name "\").\""
+                                             (:name (composite-columns kw)) "\"")
+                                        kw val))
+                           where value)
 
-                 ;; normal column
-                 (add-where where (str alias ".\"" col-name "\"") column-keyword value))))
-           {:clause [] :parameters []}
-           record) w
-      (update w :clause #(str/join " AND " %))
-      ((juxt :clause :parameters) w))))
+                   ;; normal column
+                   (add-where where (str alias ".\"" col-name "\"") column-keyword value))))
+             {:clause [] :parameters []}
+             record) w
+        (update w :clause #(str/join " AND " %))
+        ((juxt :clause :parameters) w)))))
 
 (defn fetch [db table columns where]
   (let [table-info-registry @table-info-registry

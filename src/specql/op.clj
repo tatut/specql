@@ -40,12 +40,12 @@
 (def null?
   (reify Op
     (to-sql [_ v]
-      (str v " IS NULL"))))
+      [(str v " IS NULL") []])))
 
 (def not-null?
   (reify Op
     (to-sql [_ v]
-      (str v " IS NOT NULL"))))
+      [(str v " IS NOT NULL") []])))
 
 (defrecord Opnot [op]
   Op
@@ -69,6 +69,9 @@
           (recur (conj sql op-sql)
                  (into params op-params)
                  ops))))))
+
+(defn combined-op? [x]
+  (instance? CombinedOp x))
 
 (defn or [& ops]
   (->CombinedOp " OR " ops))

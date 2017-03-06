@@ -53,7 +53,8 @@
         {:name name
          :type (case relkind
                  "c" :composite
-                 "r" :table)
+                 "r" :table
+                 "v" :view)
          :columns (into {}
                         (map (juxt :name identity))
                         columns)}))))
@@ -307,11 +308,10 @@
 
           sql (str "SELECT "
                    (sql-columns-list cols)
-                   " FROM " table-name " " alias
+                   " FROM \"" table-name "\" " alias
                    (when-not (str/blank? where-clause)
                      (str " WHERE " where-clause)))
           row (gensym "row")]
-      ;(println "SQL: " (pr-str (into [sql] where-parameters)))
       (map
        ;; Process each row and remap the columns
        ;; to the namespaced keys we want.

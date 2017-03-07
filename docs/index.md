@@ -7,6 +7,33 @@ the table structure is known.
 specql uses namespaced keys for all tables and columns and makes it easy to spot
 errors at development time.
 
+**TL;DR** To simple get a quick feel for what specql does, please look at the test suite:
+* [database.sql](https://github.com/tatut/specql/blob/master/test/database.sql)
+* [core_test.clj](https://github.com/tatut/specql/blob/master/test/specql/core_test.clj)
+
+
+## Rationale
+
+Creating a programmer friendly system to generate SQL is a hard problem. SQL is a big
+language and either you end up mashing strings together or you try to encode the whole
+language as data (or you make a poor SQL lookalike language which you then have to
+generate by mashing strings together). Another solution is to punt on the problem
+and just write SQL in resource files that can be loaded. That works well, but it
+doesn't reduce the amount of boilerplate you have to write for different types of
+queries.
+
+Specql tries to solve the boilerplate problem for common cases and leave SQL where
+it belongs (in the database). Specql introspects tables and provides a generic
+fetch function which can query the introspected tables and return any projection
+from them with any where filter. This removes the need to generate nearly identical
+SQL queries for slightly different use cases.
+
+Specql is opinionated in that it doesn't try to cover the full SQL spec. For example aggregates and
+any sort of reporting queries are simply not supported. With specql you write your
+complex queries in the database and expose them as views which specql can then introspect
+and work with. This has the added benefit that your data access queries are not coupled
+to your application but instead live in the database where they belong.
+
 ## Defining database tables
 
 Specql works with specs and an internal table info registry which are built at compile time with the
@@ -92,7 +119,7 @@ The keys in the returned maps will those that were specified in the columns set.
 In the previous example, the where clause was generated with direct value comparisons.
 Specql also supports common SQL operators in `specql.op` namespace:
 
-* equality: `=`, `not=`, `<`, `<=`, `>`, `>=`
+* equality/ordinality: `=`, `not=`, `<`, `<=`, `>`, `>=`
 * range: `between`
 * text search: `like`
 * set membership: `in`

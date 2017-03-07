@@ -16,7 +16,7 @@ errors at development time.
 
 Creating a programmer friendly system to generate SQL is a hard problem. SQL is a big
 language and either you end up mashing strings together or you try to encode the whole
-language as data (or you make a poor SQL lookalike language which you then have to
+language as data (or you make a poor SQL look-alike language which you then have to
 generate by mashing strings together). Another solution is to punt on the problem
 and just write SQL in resource files that can be loaded. That works well, but it
 doesn't reduce the amount of boilerplate you have to write for different types of
@@ -75,7 +75,7 @@ example for a table and views about the same entity, make sure that the names ar
 consistent and have the same type in each table/view.
 
 Specql supports JOINs and can navigate them while querying. The third element in the table
-definition vector is a map of extra fields that are joined entitities. The `specql.rel` namespace
+definition vector is a map of extra fields that are joined entities. The `specql.rel` namespace
 has helper functions for creating join definitions. Join specifications have three
 parameters: column in this table, the table to join, the column in the joined table.
 
@@ -134,7 +134,7 @@ maps.
 
 ```clojure
 
-;; Fetch orders in january
+;; Fetch orders in January
 (fetch db :order/orders
        #{:order/id :order/price :order/item}
        {:order/date (op/between #inst "2017-01-01T00:00:00.000-00:00"
@@ -174,7 +174,7 @@ query.
 In the above example the application has defined the criteria that is necessary for
 security and can let the client side (for example to front end view) decide how to
 filter. It can have a text search or date filter, or other restriction. The backend
-code does not need to be changed to accommodate new frontend needs. The above example
+code does not need to be changed to accommodate new front-end needs. The above example
 can be made even more generic by letting the client decide the keys to fetch
 (with a possible `clojure.set/difference` call on it to restrict it).
 

@@ -56,7 +56,8 @@ CREATE TABLE typetest (
  text text NOT NULL,
  date date NOT NULL,
  bool bool NOT NULL,
- q quark
+ q quark,
+ ts TIMESTAMP
 );
 
 

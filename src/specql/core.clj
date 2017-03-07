@@ -6,11 +6,11 @@
             [specql.op :as op]
             [specql.rel :as rel]))
 
-;; Extend java.util.Date to be a SQL date parameter
+;; Extend java.util.Date to be a SQL timestamp parameter
 (extend-protocol jdbc/ISQLValue
   java.util.Date
   (sql-value [dt]
-    (java.sql.Date. (.getTime dt))))
+    (java.sql.Timestamp. (.getTime dt))))
 
 
 (def relkind-q "SELECT relkind FROM pg_catalog.pg_class WHERE relname=?")

@@ -1,4 +1,5 @@
 [![CircleCI](https://circleci.com/gh/tatut/specql.svg?style=svg)](https://circleci.com/gh/tatut/specql)
+[![Clojars Project](https://img.shields.io/clojars/v/specql.svg)](https://clojars.org/specql)
 
 # specql
 

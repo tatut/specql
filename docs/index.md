@@ -28,8 +28,8 @@ fetch function which can query the introspected tables and return any projection
 from them with any where filter. This removes the need to generate nearly identical
 SQL queries for slightly different use cases.
 
-Specql is opinionated in that it doesn't try to cover the full SQL spec. For example aggregates and
-any sort of reporting queries are simply not supported. With specql you write your
+Specql is opinionated in that it doesn't try to cover the full SQL language. For example aggregates
+and any sort of reporting queries are simply not supported. With specql you write your
 complex queries in the database and expose them as views which specql can then introspect
 and work with. This has the added benefit that your data access queries are not coupled
 to your application but instead live in the database where they belong.
@@ -177,3 +177,11 @@ filter. It can have a text search or date filter, or other restriction. The back
 code does not need to be changed to accommodate new frontend needs. The above example
 can be made even more generic by letting the client decide the keys to fetch
 (with a possible `clojure.set/difference` call on it to restrict it).
+
+## Joining tables
+
+NOTE: documentation coming soon
+
+## Inserting new data
+
+WIP: document insert! function

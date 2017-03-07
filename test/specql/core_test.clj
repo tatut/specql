@@ -32,7 +32,15 @@
   ["typetest" :typetest/table]
 
   ;; a view is also a table
-  ["department-employees" :dep-employees/view])
+  ["department-employees" :dep-employees/view]
+
+  ["department-meeting" :department-meeting/meetings
+   {:department-meeting/department1 (rel/has-one :department-meeting/department1-id
+                                                 :department/departments
+                                                 :department/id)
+    :department-meeting/department2 (rel/has-one :department-meeting/department2-id
+                                                 :department/departments
+                                                 :department/id)}])
 
 (deftest tables-have-been-created
   ;; If test data has been inserted, we know that all tables were create
@@ -240,6 +248,12 @@
                          :dep-employees/name "R&D"
                          :dep-employees/employee-count 666}))))
 
+(defn- format-meeting [{d1 :department-meeting/department1
+                        d2 :department-meeting/department2
+                        subject :department-meeting/subject}]
+  (format "A meeting on '%s' between the %s department and the %s department"
+          subject (:department/name d1) (:department/name d2)))
+
 (deftest join-has-one
   (testing "simple join"
     (is (= #:employee {:name "Wile E. Coyote"
@@ -257,4 +271,14 @@
             (fetch db :employee/employees
                    #{:employee/name [:employee/dep #{:department/id
                                                      [:department/company #{:company/name}]}]}
-                   {:employee/id 3}))))))
+                   {:employee/id 3})))))
+
+  (testing "join the same table twice"
+    (is (= "A meeting on 'ad campaigns for new widgets' between the R&D department and the Marketing department"
+           (format-meeting
+            (first
+             (fetch db :department-meeting/meetings
+                    #{:department-meeting/subject
+                      [:department-meeting/department1 #{:department/name}]
+                      [:department-meeting/department2 #{:department/name}]}
+                    {})))))))

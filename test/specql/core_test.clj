@@ -239,10 +239,20 @@
                          :dep-employees/employee-count 666}))))
 
 (deftest join-has-one
-  (is (= #:employee {:name "Wile E. Coyote"
-                     :dep #:department {:id 1 :name "R&D"}}
-         (first
-          (fetch db :employee/employees
-                 #{:employee/name [:employee/dep #{:department/id :department/name}]}
-                 {:employee/id 1
-                  :employee/dep {:department/name (op/like "R%")}})))))
+  (testing "simple join"
+    (is (= #:employee {:name "Wile E. Coyote"
+                       :dep #:department {:id 1 :name "R&D"}}
+           (first
+            (fetch db :employee/employees
+                   #{:employee/name [:employee/dep #{:department/id :department/name}]}
+                   {:employee/id 1
+                    :employee/dep {:department/name (op/like "R%")}})))))
+
+  (testing "join two levels: employee->department->company"
+    (is (= #:employee {:name "Foo Barsky"
+                       :dep {:department/id 1 :department/company {:company/name "Acme Inc"}}}
+           (first
+            (fetch db :employee/employees
+                   #{:employee/name [:employee/dep #{:department/id
+                                                     [:department/company #{:company/name}]}]}
+                   {:employee/id 3}))))))

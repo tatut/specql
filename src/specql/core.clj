@@ -266,51 +266,73 @@
   Returns a vector tables and aliases with join clauses and column mapping:
   [[:main/table \"mai1\" nil nil {:main/column [:main/column]}]
    [:other/table \"oth2\" :left [\"mai1.other = oth2.id\"] {:other/id [:main/other :other/id]}]]"
-  [table-info-registry alias-fn primary-table columns]
-  (let [{primary-table-columns :columns :as primary-table-info}
-        (table-info-registry primary-table)
-        primary-table-alias (alias-fn primary-table)]
-    (assert primary-table-info
-            (str "Unknown table " primary-table ", call define-tables!"))
-    (loop [;; start with the primary table and all fields that are not joins
-           table [[primary-table primary-table-alias nil nil
-                   (into {}
-                         (comp (remove vector?)
-                               (map (juxt identity vector)))
-                         columns)]]
-           ;; go throuh all JOINS
-           [c & cs] (filter vector? columns)]
-      (if-not c
-        ;; No more joins, return accumulated tables
-        table
+  ([table-info-registry alias-fn primary-table primary-table-alias columns]
+   (fetch-tables table-info-registry alias-fn primary-table primary-table-alias columns true []))
+  ([table-info-registry alias-fn primary-table primary-table-alias columns
+    add-primary-table? path-prefix]
+   (let [{primary-table-columns :columns :as primary-table-info}
+         (table-info-registry primary-table)]
+     (assert primary-table-info
+             (str "Unknown table " primary-table ", call define-tables!"))
+     (loop [;; start with the primary table and all fields that are not joins
+            table (when add-primary-table?
+                    [[primary-table primary-table-alias nil nil
+                      (into {}
+                            (comp (remove vector?)
+                                  (map (juxt identity vector)))
+                            columns)]])
+            ;; go throuh all JOINS
+            [c & cs] (filter vector? columns)]
+       (if-not c
+         ;; No more joins, return accumulated tables
+         table
 
-        ;; Join table
-        (let [[join-field join-table-columns] c
-              rel (-> table-info-registry
-                      primary-table
-                      :rel join-field)
-              this-table-column
-              (-> rel ::rel/this-table-column primary-table-columns)
-              join-type (if (:not-null? this-table-column)
-                          ;; NOT NULL field, do an inner join (pg default join)
-                          :join
-                          ;; May be NULL, do a left join
-                          :left-join)
-              other-table-alias (alias-fn (::rel/other-table rel))
-              other-table-columns (-> rel ::rel/other-table table-info-registry :columns)
-              other-table-column (-> rel ::rel/other-table-column other-table-columns)]
-          (recur (conj table
-                       [(::rel/other-table rel)
-                        other-table-alias
-                        join-type
-                        (str primary-table-alias ".\""
-                             (:name this-table-column) "\" = "
-                             other-table-alias ".\""
-                             (:name other-table-column) "\"")
-                        (into {}
-                              (map (juxt identity (partial conj [join-field])))
-                              join-table-columns)])
-                 cs))))))
+         ;; Join table
+         (let [[join-field join-table-columns] c
+               rel (-> table-info-registry
+                       primary-table
+                       :rel join-field)
+               this-table-column
+               (-> rel ::rel/this-table-column primary-table-columns)
+               join-type (if (:not-null? this-table-column)
+                           ;; NOT NULL field, do an inner join (pg default join)
+                           :join
+                           ;; May be NULL, do a left join
+                           :left-join)
+               other-table-alias (alias-fn (::rel/other-table rel))
+               other-table-columns (-> rel ::rel/other-table table-info-registry :columns)
+
+               other-table-column (-> rel ::rel/other-table-column other-table-columns)
+               nested-joins (when (some vector? join-table-columns)
+                              (fetch-tables table-info-registry
+                                            alias-fn (::rel/other-table rel) other-table-alias
+                                            join-table-columns false
+                                            (conj path-prefix join-field)))]
+           (recur (into table
+                        (concat
+                         [[(::rel/other-table rel)
+                            other-table-alias
+                            join-type
+                            (str primary-table-alias ".\""
+                                 (:name this-table-column) "\" = "
+                                 other-table-alias ".\""
+                                 (:name other-table-column) "\"")
+                            (into {}
+                                  (map (juxt identity
+                                             (fn [c]
+                                               (into path-prefix
+                                                     (conj [join-field] c)))))
+                                  (remove vector? join-table-columns))]]
+                         nested-joins))
+                  cs)))))))
+
+(alter-var-root #'fetch-tables
+                (fn [fetch-tables]
+                  (fn [& args]
+                    (println "FETCH-TABLES: " (pr-str args))
+                    (let [res (apply fetch-tables args)]
+                      (println " => " (pr-str res))
+                      res))))
 
 (defn- sql-from [table-info-registry tables]
   (str/join
@@ -330,8 +352,9 @@
         (table-info-registry table)]
     (assert table-info (str "Unknown table " table ", call define-tables!"))
     (let [alias-fn (gen-alias)
-          alias (gensym (subs table-name 0 1))
-          table-alias (fetch-tables table-info-registry alias-fn table columns)
+          alias (alias-fn table)
+          table-alias (fetch-tables table-info-registry alias-fn
+                                    table alias columns)
           cols (reduce merge
                        {}
                        (for [[table alias _ _ columns] table-alias]

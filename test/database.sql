@@ -67,3 +67,18 @@ CREATE VIEW "department-employees" AS
 	    FROM employee e
 	   WHERE e.department = d.id) AS "employee-count"
     FROM department d;
+
+-- silly table to test joins
+CREATE TABLE "department-meeting" (
+ "start-time" TIMESTAMP,
+ "end-time" TIMESTAMP,
+ "subject" TEXT,
+ "department1-id" INTEGER REFERENCES department (id),
+ "department2-id" INTEGER REFERENCES department (id)
+);
+
+INSERT INTO "department-meeting"
+       ("start-time", "end-time", "subject", "department1-id", "department2-id")
+VALUES ('2017-03-07T09:00:00', '2017-03-07T11:00:00',
+        'ad campaigns for new widgets',
+	1, 2);

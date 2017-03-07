@@ -1,4 +1,4 @@
-(defproject specql "0.1-SNAPSHOT"
+(defproject specql/specql "0.2-SNAPSHOT"
   :description "PostgreSQL spec query language"
   :dependencies [[org.clojure/clojure "1.9.0-alpha14"]
                  [org.clojure/java.jdbc "0.7.0-alpha2"]]

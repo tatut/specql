@@ -326,14 +326,6 @@
                          nested-joins))
                   cs)))))))
 
-(alter-var-root #'fetch-tables
-                (fn [fetch-tables]
-                  (fn [& args]
-                    (println "FETCH-TABLES: " (pr-str args))
-                    (let [res (apply fetch-tables args)]
-                      (println " => " (pr-str res))
-                      res))))
-
 (defn- sql-from [table-info-registry tables]
   (str/join
    " "

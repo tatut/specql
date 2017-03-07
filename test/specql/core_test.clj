@@ -224,12 +224,14 @@
          (stest/summarize-results (stest/check `typetest)))))
 
 (deftest view-query
-  (is (= (list #:dep-employees{:id 1 :name "R&D" :employee-count 3})
-         (fetch db :dep-employees/view
-                #{:dep-employees/id
-                  :dep-employees/name
-                  :dep-employees/employee-count}
-                {})))
+  (is (= #{#:dep-employees{:id 1 :name "R&D" :employee-count 3}
+           #:dep-employees{:id 2 :name "Marketing" :employee-count 0}}
+         (into #{}
+               (fetch db :dep-employees/view
+                      #{:dep-employees/id
+                        :dep-employees/name
+                        :dep-employees/employee-count}
+                      {}))))
 
   ;; Can't insert to a view
   (is (thrown? java.sql.SQLException

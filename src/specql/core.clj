@@ -390,9 +390,10 @@
            value-names []
            value-parameters []
            [[column-kw value] & columns] (seq record)]
-      (let [column (table-columns column-kw)]
-        (if-not column
-          [names value-names value-parameters]
+      (if-not column-kw
+        [names value-names value-parameters]
+        (let [column (table-columns column-kw)]
+          (assert column (str "Unknown column " (pr-str column-kw) " for table " (pr-str table)))
           (if-let [composite-type-kw (composite-type table-info-registry (:type column))]
             ;; This is a composite type, add ROW(?,...)::type value
             (let [composite-type (table-info-registry composite-type-kw)

@@ -52,7 +52,101 @@ definition vector is a map of extra fields that are joined entitities. The `spec
 has helper functions for creating join definitions. Join specifications have three
 parameters: column in this table, the table to join, the column in the joined table.
 
-Note that the joined entity field should be different from the id field. For example if you name
-a foreign reference column by the name name of the entity, you must call the joined
-field something else (eg. "order" vs. "order-id"). It is more convenient to name foreign keys with a
-"-id" prefix.
+Note that the joined entity keyword should be different from the id keyword. For example if you name
+a foreign reference column by the name of the entity, you must call the joined
+keyword something else (eg. "order" vs. "order-id"). It is more convenient to name foreign keys with
+an "-id" prefix in the database so that the unprefixed name can be used for the joined entity.
+
+## Querying data
+
+The `fetch` function in the `specql.core` namespace is responsible for all queries.
+It takes in a database connection and a description of what to query and returns a sequence
+of maps.
+
+### Simple example
+
+```clojure
+(fetch ;; the database connection to use
+       db
+
+       ;; the table to query from
+       :order/orders
+
+       ;; what columns to return
+       #{:order/id :order/price}
+
+       ;; where the following matches
+       {:order/id 1})
+;; => ({:order/id 1 :order/price 666M})
+```
+
+The following shows the basic form of a fetch call. The table is given with the same
+keyword that was registered in `define-tables`. The columns to retrieve is a set
+of column keywords in the table. The where clause is a map where keys are columns of
+the table and values to compare against.
+
+The keys in the returned maps will those that were specified in the columns set.
+
+### Specifying search criteria
+
+In the previous example, the where clause was generated with direct value comparisons.
+Specql also supports common SQL operators in `specql.op` namespace:
+
+* equality: `=`, `not=`, `<`, `<=`, `>`, `>=`
+* range: `between`
+* text search: `like`
+* set membership: `in`
+* null checks: `null?` and `not-null?`
+* combination: `or` and `and`
+* negation: `not`
+
+If a where map contains an operator instead of a value, the operator is called to generate
+parameters and SQL. Keys in a where map are automatically ANDed together. A key value can
+combine multiple operators with `and` or `or`. Combinations can also be used for whole
+maps.
+
+```clojure
+
+;; Fetch orders in january
+(fetch db :order/orders
+       #{:order/id :order/price :order/item}
+       {:order/date (op/between #inst "2017-01-01T00:00:00.000-00:00"
+                                #inst "2017-01-31T23:59:59.999-00:00")})
+
+;; Fetch recent or outstanding orders
+(fetch db :order/orders
+       #{:order/id :order/price :order/status :order/item}
+       (op/or
+        {:order/status (op/in #{"processing" "shipped"})}
+	{:order/date (op/> (-> 14 days ago))}))
+```
+
+Given that where queries are made up of data and  specql validates the columns and
+where criteria, it is feasible to let the client tell you what to fetch and how to
+filter the result set without sacrificing security. You can use PostgreSQL row level
+security to define what a user can see or simply AND a security where clause to the
+query.
+
+```clojure
+
+(def orders-view-keys #{:order/date :order/status :order/price :order/id :order/item})
+
+(defn user-orders
+  "A where clause that restricts orders to the customer's own orders."
+  [{id :user/id}]
+  {:order/customer id})
+
+(defn my-orders [db user search-criteria]
+  (fetch db :order/orders orders-view-keys
+         ;; AND together application defined criteria
+	 ;; and client given filters
+         (op/and (user-orders user)
+	         search-criteria)))
+```
+
+In the above example the application has defined the criteria that is necessary for
+security and can let the client side (for example to front end view) decide how to
+filter. It can have a text search or date filter, or other restriction. The backend
+code does not need to be changed to accommodate new frontend needs. The above example
+can be made even more generic by letting the client decide the keys to fetch
+(with a possible `clojure.set/difference` call on it to restrict it).

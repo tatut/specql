@@ -73,8 +73,8 @@ CREATE TABLE "department-meeting" (
  "start-time" TIMESTAMP,
  "end-time" TIMESTAMP,
  "subject" TEXT,
- "department1-id" INTEGER REFERENCES department (id),
- "department2-id" INTEGER REFERENCES department (id)
+ "department1-id" INTEGER NOT NULL REFERENCES department (id),
+ "department2-id" INTEGER NOT NULL REFERENCES department (id)
 );
 
 INSERT INTO "department-meeting"

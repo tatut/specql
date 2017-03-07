@@ -38,7 +38,7 @@ VALUES ('Acme Inc', '("some street 1","90120","FI")'::address, '("other street 4
 
 INSERT
   INTO department ("company-id", name)
-VALUES (1, 'R&D');
+VALUES (1, 'R&D'), (2, 'Marketing');
 
 INSERT
   INTO employee (name, title, department, address, "employment-started", "employment-ended")

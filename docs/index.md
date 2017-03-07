@@ -13,10 +13,12 @@ Specql works with specs and an internal table info registry which are built at c
 `define-tables` macro. This requires that you have a valid database connection during
 compile time (which you should have anyway, for testing).
 
-> If your build process has no database available, you can use opentable/otj-pg-embedded to easily
-> get an embedded database running.
+If your build process has no database available, you can use
+[opentable/otj-pg-embedded](https://github.com/opentable/otj-pg-embedded) to easily
+get an embedded database running.
 
-The `define-tables` macro takes a database connection (anything clojure.java/jdbc supports) and
+The `define-tables` macro takes a database connection (anything
+[clojure.java/jdbc](https://github.com/clojure/java.jdbc) supports) and
 one or more vectors containing a table name, a keyword and optional join
 configuration.
 

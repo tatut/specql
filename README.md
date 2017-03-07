@@ -49,7 +49,8 @@ This is very much still work in progress.
 Features I intend to implement:
 * update
 * ~~insert~~
-* JOIN navigation (add [:employee/department #{:department/name :department/id}] to JOIN the department table and fetch name and id keys as a nested map)
+* ~~JOIN navigation: has-one~~
+* JOIN navigation: has-many
 * ~~standard operators for where  ({:employee/name (like "%Smith%")})~~
 * ~~unpacking composite types (user defined record types as column values should be nested maps)~~
 
@@ -60,3 +61,6 @@ reporting queries and complex joins) queries are better written as SQL. Use yesq
 or the like.
 
 This library intends to provide the most common case of CRUD queries and defer to SQL on the more difficult ones.
+
+Specql can use VIEWs in the database just like tables, so you can write your complex queries as
+views and use them via specql.

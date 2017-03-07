@@ -14,7 +14,7 @@ CREATE TABLE company (
 
 CREATE TABLE department (
   id serial primary key,
-  company integer REFERENCES company (id),
+  "company-id" integer REFERENCES company (id),
   name varchar
 );
 
@@ -37,7 +37,7 @@ VALUES ('Acme Inc', '("some street 1","90120","FI")'::address, '("other street 4
        ('Omni Consumer Products', '(kujatie 1,90999,FI)'::address, NULL);
 
 INSERT
-  INTO department (company, name)
+  INTO department ("company-id", name)
 VALUES (1, 'R&D');
 
 INSERT

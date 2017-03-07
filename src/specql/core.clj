@@ -12,7 +12,6 @@
   (sql-value [dt]
     (java.sql.Date. (.getTime dt))))
 
-(s/def ::column-info (s/keys :req [::column-name ::data-type ::table-name]))
 
 (def relkind-q "SELECT relkind FROM pg_catalog.pg_class WHERE relname=?")
 (def columns-q (str "SELECT attr.attname AS name, attr.attnum AS number,"
@@ -160,10 +159,10 @@
 
 (defn fetch-columns
   "Return a map of column alias to vector of [sql-accessor result-path]"
-  [table-info-registry table table-alias columns-set]
+  [table-info-registry table table-alias alias-fn column->path]
   (let [table-columns (:columns (table-info-registry table))]
     (reduce
-     (fn [cols column-kw]
+     (fn [cols [column-kw result-path]]
        (let [name (:name (table-columns column-kw))
              composite-type-kw (composite-type name)]
          (assert name (str "Unknown column " column-kw " for table " table))
@@ -173,15 +172,15 @@
            (merge cols
                   (into {}
                         (map (fn [[field-kw field]]
-                               [(keyword (gensym (subs name 0 2)))
+                               [(keyword (alias-fn name))
                                 [(str "(" table-alias ".\"" name "\").\"" (:name field) "\"")
-                                 [column-kw field-kw]]]))
+                                 (into result-path [field-kw])]]))
                         (:columns (table-info-registry composite-type-kw))))
            ;; A regular field
            (assoc cols
-                  (keyword (gensym (subs name 0 1)))
-                  [(str table-alias ".\"" name "\"") column-kw]))))
-     {} columns-set)))
+                  (keyword (alias-fn name))
+                  [(str table-alias ".\"" name "\"") result-path]))))
+     {} column->path)))
 
 (defn sql-columns-list [cols]
   (str/join ", "
@@ -189,57 +188,73 @@
                    (str col-name " AS " (name col-alias)))
                  cols)))
 
-(defn- sql-where [table-info-registry table alias record]
-  (if (op/combined-op? record)
-    ;; OR/AND on the top level
-    (let [{combine-with :combine-with records :ops} record]
-      (loop [sql []
-             params []
-             [record & records] records]
-        (if-not record
-          [(str "(" (str/join combine-with sql) ")")
-           params]
-          (let [[record-sql record-params]
-                (sql-where table-info-registry table alias record)]
-            (recur (conj sql record-sql)
-                   (into params record-params)
-                   records)))))
-    ;; Regular map of field to value
-    (let [table-columns (-> table table-info-registry :columns)
-          add-where (fn [{:keys [:clause :parameters] :as where} column-accessor column-keyword value]
-                      (if (satisfies? op/Op value)
-                        ;; This is an operator, call to-sql to create SQL clause and params
-                        (let [[cl params] (op/to-sql value column-accessor)]
-                          (assoc where
-                                 :clause (conj clause cl)
-                                 :parameters (into parameters params)))
-                        ;; Plain old value, assert that it is valid and create = comparison
-                        (assoc where
-                               :clause (conj clause (str column-accessor " = ?"))
-                               :parameters (conj parameters (assert-spec column-keyword value)))))]
-      (as-> (reduce
-             (fn [where [column-keyword value]]
-               (let [{col-name :name :as column} (column-keyword table-columns)]
-                 (if-let [composite-columns (some->> column :type
-                                                     (composite-type table-info-registry)
-                                                     table-info-registry
-                                                     :columns)]
-                   ;; composite type: add all fields as separate clauses
-                   (reduce (fn [where [kw val]]
-                             (add-where where
-                                        (str "(" alias ".\"" col-name "\").\""
-                                             (:name (composite-columns kw)) "\"")
-                                        kw val))
-                           where value)
+(defn- sql-where
+  ([table-info-registry path->table record]
+   (sql-where table-info-registry path->table record []))
+  ([table-info-registry path->table record path-prefix]
+   (if (op/combined-op? record)
+     ;; OR/AND on the top level
+     (let [{combine-with :combine-with records :ops} record]
+       (loop [sql []
+              params []
+              [record & records] records]
+         (if-not record
+           [(str "(" (str/join combine-with sql) ")")
+            params]
+           (let [[record-sql record-params]
+                 (sql-where table-info-registry path->table record path-prefix)]
+             (recur (conj sql record-sql)
+                    (into params record-params)
+                    records)))))
+     ;; Regular map of field to value
+     (let [{:keys [table alias]} (path->table path-prefix)
+           table-columns (-> table table-info-registry :columns)
+           add-where (fn [{:keys [:clause :parameters] :as where} column-accessor column-keyword value]
+                       (if (satisfies? op/Op value)
+                         ;; This is an operator, call to-sql to create SQL clause and params
+                         (let [[cl params] (op/to-sql value column-accessor)]
+                           (assoc where
+                                  :clause (conj clause cl)
+                                  :parameters (into parameters params)))
+                         ;; Plain old value, assert that it is valid and create = comparison
+                         (assoc where
+                                :clause (conj clause (str column-accessor " = ?"))
+                                :parameters (conj parameters (assert-spec column-keyword value)))))]
+       (as-> (reduce
+              (fn [where [column-keyword value]]
+                ;; If column is a joined table, it has a mapping in path->table.
+                ;; Recursively create clauses for the value
+                (if (contains? path->table (into path-prefix [column-keyword]))
+                  (let [[sql params] (sql-where table-info-registry path->table value
+                                                (into path-prefix [column-keyword])) ]
+                    (assoc where
+                           :clause (conj (:clause where) (str "(" sql ")"))
+                           :parameters (into (:parameters where) params)))
 
-                   ;; normal column
-                   (add-where where (str alias ".\"" col-name "\"") column-keyword value))))
-             {:clause [] :parameters []}
-             record) w
-        (update w :clause #(str/join " AND " %))
-        ((juxt :clause :parameters) w)))))
+                  ;; This is a column in the current table
+                  (let [{col-name :name :as column} (column-keyword table-columns)]
+                    (if-let [composite-columns (some->> column :type
+                                                        (composite-type table-info-registry)
+                                                        table-info-registry
+                                                        :columns)]
+                      ;; composite type: add all fields as separate clauses
+                      (reduce (fn [where [kw val]]
+                                (add-where where
+                                           (str "(" alias ".\"" col-name "\").\""
+                                                (:name (composite-columns kw)) "\"")
+                                           kw val))
+                              where value)
 
-(defn- gen-alias []
+                      ;; normal column
+                      (add-where where (str alias ".\"" col-name "\"") column-keyword value)))))
+              {:clause [] :parameters []}
+              record) w
+         (update w :clause #(str/join " AND " %))
+         ((juxt :clause :parameters) w))))))
+
+(defn- gen-alias
+  "Returns a function that create successively numbered aliases for keywords."
+  []
   (let [alias (volatile! 0)]
     (fn [named]
       (let [n (name named)]
@@ -248,9 +263,9 @@
 
 (defn- fetch-tables
   "Determine all tables to query from. JOINs tables indicated by columns.
-  Returns a vector tables and aliases with join clauses:
-  [[:main/table \"mai1\" nil nil #{...cols for main table...}]
-   [:other/table \"oth2\" :left [\"mai1.other = oth2.id\"] #{...cols for other table...}]]"
+  Returns a vector tables and aliases with join clauses and column mapping:
+  [[:main/table \"mai1\" nil nil {:main/column [:main/column]}]
+   [:other/table \"oth2\" :left [\"mai1.other = oth2.id\"] {:other/id [:main/other :other/id]}]]"
   [table-info-registry alias-fn primary-table columns]
   (let [{primary-table-columns :columns :as primary-table-info}
         (table-info-registry primary-table)
@@ -259,8 +274,9 @@
             (str "Unknown table " primary-table ", call define-tables!"))
     (loop [;; start with the primary table and all fields that are not joins
            table [[primary-table primary-table-alias nil nil
-                   (into #{}
-                         (remove vector?)
+                   (into {}
+                         (comp (remove vector?)
+                               (map (juxt identity vector)))
                          columns)]]
            ;; go throuh all JOINS
            [c & cs] (filter vector? columns)]
@@ -291,8 +307,23 @@
                              (:name this-table-column) "\" = "
                              other-table-alias ".\""
                              (:name other-table-column) "\"")
-                        join-table-columns])
+                        (into {}
+                              (map (juxt identity (partial conj [join-field])))
+                              join-table-columns)])
                  cs))))))
+
+(defn- sql-from [table-info-registry tables]
+  (str/join
+   " "
+   (for [[table alias join-type join-cond _] tables]
+     (str (case join-type
+            :join " JOIN "
+            :left-join " LEFT JOIN "
+            "")
+          "\"" (:name (table-info-registry table)) "\" " alias
+          (when join-cond
+            (str " ON " join-cond))))))
+
 (defn fetch [db table columns where]
   (let [table-info-registry @table-info-registry
         {table-name :name table-columns :columns :as table-info}
@@ -301,17 +332,28 @@
     (let [alias-fn (gen-alias)
           alias (gensym (subs table-name 0 1))
           table-alias (fetch-tables table-info-registry alias-fn table columns)
-          cols (fetch-columns table-info-registry table alias columns)
+          cols (reduce merge
+                       {}
+                       (for [[table alias _ _ columns] table-alias]
+                         (fetch-columns table-info-registry table alias alias-fn columns)))
 
+          path->table (into {}
+                            (mapcat (fn [[table alias _ _ paths]]
+                                      (for [[_ p] paths]
+                                        [(subvec p 0 (dec (count p)))
+                                         {:table table
+                                          :alias alias}])))
+                            table-alias)
           [where-clause where-parameters]
-          (sql-where table-info-registry table alias where)
+          (sql-where table-info-registry path->table where)
 
-          sql (str "SELECT "
-                   (sql-columns-list cols)
-                   " FROM \"" table-name "\" " alias
+          sql (str "SELECT " (sql-columns-list cols)
+                   " FROM " (sql-from table-info-registry table-alias)
                    (when-not (str/blank? where-clause)
                      (str " WHERE " where-clause)))
-          row (gensym "row")]
+          row (gensym "row")
+          sql-and-parameters (into [sql] where-parameters)]
+      ;(println "SQL: " (pr-str sql-and-parameters))
       (map
        ;; Process each row and remap the columns
        ;; to the namespaced keys we want.
@@ -320,14 +362,12 @@
                    (let [v (resultset-kw resultset-row)]
                      (if (nil? v)
                        row
-                       (if (keyword? output-path)
-                         (assoc row output-path v)
-                         (assoc-in row output-path v)))))
+                       (assoc-in row output-path v))))
                  {}
                  cols))
 
        ;; Query the generated SQL with the where map arguments
-       (jdbc/query db (into [sql] where-parameters))))))
+       (jdbc/query db sql-and-parameters)))))
 
 (defn- insert-columns-and-values [table-info-registry table record]
   (let [table-columns (:columns (table-info-registry table))]
@@ -377,18 +417,19 @@
         (table-info-registry table-kw)]
     (assert table (str "Unknown table " table ", call define-tables!"))
     (assert-spec insert-spec record)
-    (let [primary-key-columns (into #{}
+    (let [primary-key-columns (into {}
                                     (keep (fn [[kw {pk? :primary-key?}]]
                                             (when pk?
-                                              kw))
+                                              [kw [kw]]))
                                           columns))
-          alias (gensym "ins")
+          alias-fn (gen-alias)
+          alias (alias-fn :ins)
           cols (when-not (empty? primary-key-columns)
-                 (fetch-columns table-info-registry table-kw alias primary-key-columns))
+                 (fetch-columns table-info-registry table-kw alias alias-fn primary-key-columns))
           [column-names value-names value-parameters]
           (insert-columns-and-values table-info-registry table-kw record)
 
-          sql (str "INSERT INTO " table-name " AS " alias " ("
+          sql (str "INSERT INTO \"" table-name "\" AS " alias " ("
                    (str/join ", " (map #(str "\"" % "\"") column-names)) ") "
                    "VALUES (" (str/join "," value-names) ") "
                    (when cols
@@ -400,6 +441,6 @@
             record)
         (let [result (first (jdbc/query db sql-and-params))]
           (reduce (fn [record [resultset-kw [_ output-kw]]]
-                    (assoc record output-kw (result resultset-kw)))
+                    (assoc-in record output-kw (result resultset-kw)))
                   record
                   cols))))))

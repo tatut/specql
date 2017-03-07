@@ -23,7 +23,11 @@
   ["department" :department/departments {:department/employees
                                          (rel/has-many :department/id
                                                        :employee/employees
-                                                       :employee/department)}]
+                                                       :employee/department)
+                                         :department/company
+                                         (rel/has-one :department/company-id
+                                                      :company/companies
+                                                      :company/id)}]
   ["quark" :enum/quark] ;; an enum type
   ["typetest" :typetest/table]
 
@@ -225,12 +229,20 @@
                 #{:dep-employees/id
                   :dep-employees/name
                   :dep-employees/employee-count}
-                {}))))
+                {})))
 
-#_(deftest join-has-one
+  ;; Can't insert to a view
+  (is (thrown? java.sql.SQLException
+               (insert! db :dep-employees/view
+                        {:dep-employees/id 1
+                         :dep-employees/name "R&D"
+                         :dep-employees/employee-count 666}))))
+
+(deftest join-has-one
   (is (= #:employee {:name "Wile E. Coyote"
                      :dep #:department {:id 1 :name "R&D"}}
          (first
           (fetch db :employee/employees
                  #{:employee/name [:employee/dep #{:department/id :department/name}]}
-                 {:employee/id 1})))))
+                 {:employee/id 1
+                  :employee/dep {:department/name (op/like "R%")}})))))

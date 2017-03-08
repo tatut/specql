@@ -20,7 +20,7 @@
 (defn has-many
   "Describe a link where another table links to this table by key"
   [this-table-column other-table other-table-column]
-  {::rel-type ::has-many
+  {::type ::has-many
    ::this-table-column this-table-column
    ::other-table other-table
    ::other-table-column other-table-column})
@@ -34,7 +34,7 @@
 (defn has-one
   "Describe a link where this table links to another by key"
   [this-table-column other-table other-table-column]
-  {::rel-type ::has-one
+  {::type ::has-one
    ::this-table-column this-table-column
    ::other-table other-table
    ::other-table-column other-table-column})

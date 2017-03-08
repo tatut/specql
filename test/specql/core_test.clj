@@ -1,5 +1,5 @@
 (ns specql.core-test
-  (:require [specql.core :refer [define-tables fetch insert!]]
+  (:require [specql.core :refer [define-tables fetch insert! delete!]]
             [specql.op :as op]
             [specql.rel :as rel]
             [clojure.test :as t :refer [deftest is testing]]
@@ -282,3 +282,16 @@
                       [:department-meeting/department1 #{:department/name}]
                       [:department-meeting/department2 #{:department/name}]}
                     {})))))))
+
+(deftest delete
+  (let [fetch-emp1 #(first (fetch db :employee/employees
+                                  #{:employee/name} {:employee/id 1}))]
+    (testing "deletion works"
+      ;; Wile exists
+      (is (= {:employee/name "Wile E. Coyote"} (fetch-emp1)))
+
+      ;; Delete any employee with id less than 2 (should return 1 deleted rows)
+      (is (= 1 (delete! db :employee/employees {:employee/id (op/< 2)})))
+
+      ;; Wile does not exist anymore
+      (is (empty? (fetch-emp1))))))

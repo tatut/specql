@@ -178,10 +178,27 @@ code does not need to be changed to accommodate new front-end needs. The above e
 can be made even more generic by letting the client decide the keys to fetch
 (with a possible `clojure.set/difference` call on it to restrict it).
 
-## Joining tables
+### Joining tables
 
 NOTE: documentation coming soon
 
 ## Inserting new data
 
 WIP: document insert! function
+
+
+## Deleting data
+
+Specql provides a `delete!` function which can be used to delete rows from a table.
+Deletion takes a database connection, the table to delete from and a where map. The
+where clause is generated in the same way as in `fetch`.
+
+Delete will assert that the where clause is not empty before running the SQL delete command.
+If you really need to delete all rows from a table, use PostgreSQL `TRUNCATE` command.
+
+```clojure
+(delete! db :order/orders
+         {:order/state "processed"
+	  :order/date (op/< #inst "1970-01-01T00:00:00.000-00:00")})
+;; => number of rows deleted
+```

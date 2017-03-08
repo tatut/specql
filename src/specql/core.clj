@@ -224,7 +224,7 @@
               (fn [where [column-keyword value]]
                 ;; If column is a joined table, it has a mapping in path->table.
                 ;; Recursively create clauses for the value
-                (if (contains? path->table (into path-prefix [column-keyword]))
+                (if (path->table (into path-prefix [column-keyword]))
                   (let [[sql params] (sql-where table-info-registry path->table value
                                                 (into path-prefix [column-keyword])) ]
                     (assoc where
@@ -338,6 +338,15 @@
           (when join-cond
             (str " ON " join-cond))))))
 
+(defn- path->table-mapping [table-alias]
+  (into {}
+        (mapcat (fn [[table alias _ _ paths]]
+                  (for [[_ p] paths]
+                    [(subvec p 0 (dec (count p)))
+                     {:table table
+                      :alias alias}])))
+        table-alias))
+
 (defn fetch [db table columns where]
   (let [table-info-registry @table-info-registry
         {table-name :name table-columns :columns :as table-info}
@@ -352,13 +361,7 @@
                        (for [[table alias _ _ columns] table-alias]
                          (fetch-columns table-info-registry table alias alias-fn columns)))
 
-          path->table (into {}
-                            (mapcat (fn [[table alias _ _ paths]]
-                                      (for [[_ p] paths]
-                                        [(subvec p 0 (dec (count p)))
-                                         {:table table
-                                          :alias alias}])))
-                            table-alias)
+          path->table (path->table-mapping table-alias)
           [where-clause where-parameters]
           (sql-where table-info-registry path->table where)
 
@@ -460,3 +463,25 @@
                     (assoc-in record output-kw (result resultset-kw)))
                   record
                   cols))))))
+
+(defn delete!
+  "Delete rows from table that match the given search criteria.
+  Returns the number of rows deleted."
+  [db table where]
+  (assert (@table-info-registry table)
+          (str "Unknown table " table ", call define-tables!"))
+  (let [table-info-registry @table-info-registry
+        {table-name :name} (table-info-registry table)
+        alias-fn (gen-alias)
+        alias (alias-fn table)
+        [where-clause where-parameters]
+        (sql-where table-info-registry
+                   #(when (= % [])
+                      {:table table
+                       :alias alias})
+                   where)
+        sql (str "DELETE FROM " table-name " AS " alias
+                 " WHERE " where-clause)]
+    (first
+     (jdbc/execute! db
+                    (into [sql] where-parameters)))))

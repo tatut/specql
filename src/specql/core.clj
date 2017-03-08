@@ -13,8 +13,8 @@
     (java.sql.Timestamp. (.getTime dt))))
 
 
-(def relkind-q "SELECT relkind FROM pg_catalog.pg_class WHERE relname=?")
-(def columns-q (str "SELECT attr.attname AS name, attr.attnum AS number,"
+(def ^:private relkind-q "SELECT relkind FROM pg_catalog.pg_class WHERE relname=?")
+(def ^:private columns-q (str "SELECT attr.attname AS name, attr.attnum AS number,"
                     "attr.attnotnull AS \"not-null?\","
                     "attr.atthasdef AS \"has-default?\","
                     "t.typname AS type, "
@@ -25,7 +25,7 @@
                     "JOIN pg_catalog.pg_class cls ON attr.attrelid = cls.oid "
                     "JOIN pg_catalog.pg_type t ON attr.atttypid = t.oid "
                     "WHERE cls.relname = ? AND attnum > 0"))
-(def enum-values-q (str "SELECT e.enumlabel AS value"
+(def ^:private enum-values-q (str "SELECT e.enumlabel AS value"
                         "  FROM pg_type t"
                         "       JOIN pg_enum e ON t.oid = e.enumtypid"
                         "       JOIN pg_catalog.pg_namespace n ON n.oid = t.typnamespace"
@@ -150,14 +150,14 @@
                           :when type-spec]
                       `(s/def ~kw ~type-spec)))))))))
 
-(defn assert-spec
+(defn- assert-spec
   "Unconditionally assert that value is valid for spec. Returns value."
   [spec value]
   (assert (s/valid? spec value)
           (s/explain-str spec value))
   value)
 
-(defn fetch-columns
+(defn- fetch-columns
   "Return a map of column alias to vector of [sql-accessor result-path]"
   [table-info-registry table table-alias alias-fn column->path]
   (let [table-columns (:columns (table-info-registry table))]
@@ -182,7 +182,7 @@
                   [(str table-alias ".\"" name "\"") result-path]))))
      {} column->path)))
 
-(defn sql-columns-list [cols]
+(defn- sql-columns-list [cols]
   (str/join ", "
             (map (fn [[col-alias [col-name _]]]
                    (str col-name " AS " (name col-alias)))

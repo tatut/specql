@@ -161,7 +161,7 @@ query.
 (defn user-orders
   "A where clause that restricts orders to the customer's own orders."
   [{id :user/id}]
-  {:order/customer id})
+  {:order/customer-id id})
 
 (defn my-orders [db user search-criteria]
   (fetch db :order/orders orders-view-keys
@@ -180,9 +180,28 @@ can be made even more generic by letting the client decide the keys to fetch
 
 ### Joining tables
 
-NOTE: documentation coming soon
+The `fetch` function can take advantage of the join definitions given when the `define-tables`
+was called. Simply add a column with the form `[:thistable/field #{:joinedtable/field1 ... :joinedtable/fieldN}]`
+and the table will automatically be joined and the given fields will be available
+as a nested map.
+
+```clojure
+(fetch db :order/orders
+       #{:order/id :order/item :order/price
+         [:order/customer #{:customer/name :customer/email}]}
+       {:order/id 1})
+;; => ({:order/id 1 :order/item "Log from Blammo" :order/price 42.1M
+        :order/customer {:customer/name "Max Syöttöpaine"
+	                 :customer/email "max@example.com"}})
+```
+
+Joins can be nested so that the joined column set can also refer to a joined table
+the same way.
+
+If the join is a `has-many` the nested value is a sequence of maps instead of a single map.
 
 ## Inserting new data
+
 
 WIP: document insert! function
 

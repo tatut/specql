@@ -40,7 +40,14 @@
                                                  :department/id)
     :department-meeting/department2 (rel/has-one :department-meeting/department2-id
                                                  :department/departments
-                                                 :department/id)}])
+                                                 :department/id)
+    :department-meeting/notes (rel/has-many :department-meeting/id
+                                            :department-meeting-notes/notes
+                                            :department-meeting-notes/department-meeting-id)}]
+  ["department-meeting-notes" :department-meeting-notes/notes
+   {:department-meeting-notes/department-meeting (rel/has-one :department-meeting-notes/department-meeting-id
+                                                              :department-meeting/meetings
+                                                              :department-meeting/id)}])
 
 (deftest tables-have-been-created
   ;; If test data has been inserted, we know that all tables were create
@@ -282,6 +289,21 @@
                       [:department-meeting/department1 #{:department/name}]
                       [:department-meeting/department2 #{:department/name}]}
                     {})))))))
+
+(deftest join-has-many
+  (testing "fetch meetings with the notes"
+    (is (= (list #:department-meeting{:id 1 :subject "ad campaigns for new widgets"
+                                      :notes
+                                      [#:department-meeting-notes{:note "Rolf suggested a new campaign called: widgets4all", :time #inst "2017-03-07T09:01:00.000000000-00:00"}
+                                       #:department-meeting-notes{:note "Max seconded the idea, but asked for cost estimates", :time #inst "2017-03-07T09:02:00.000000000-00:00"}
+                                       #:department-meeting-notes{:note "After lengthy dicussion, it was decided that RFPs would be sent to the usual ad agencies", :time #inst "2017-03-07T09:45:00.000000000-00:00"}]})
+           (fetch db :department-meeting/meetings
+                  #{:department-meeting/id
+                    :department-meeting/subject
+                    [:department-meeting/notes
+                     #{:department-meeting-notes/time
+                       :department-meeting-notes/note}]}
+                  {})))))
 
 (deftest delete
   (let [fetch-emp1 #(first (fetch db :employee/employees

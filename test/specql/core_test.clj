@@ -294,4 +294,15 @@
       (is (= 1 (delete! db :employee/employees {:employee/id (op/< 2)})))
 
       ;; Wile does not exist anymore
-      (is (empty? (fetch-emp1))))))
+      (is (empty? (fetch-emp1)))))
+
+  (testing "delete with an empty clause will throw"
+    (is (thrown-with-msg?
+         AssertionError #"empty where clause"
+         (delete! db :employee/employees
+                  {}))))
+
+  (testing "delete from an unknown table"
+    (is (thrown-with-msg?
+         AssertionError #"Unknown table"
+         (delete! db :foo/bar {:foo/id 1})))))

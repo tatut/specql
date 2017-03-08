@@ -482,6 +482,8 @@
                    where)
         sql (str "DELETE FROM " table-name " AS " alias
                  " WHERE " where-clause)]
+    (assert (not (str/blank? where-clause))
+            "Will not delete with an empty where clause")
     (first
      (jdbc/execute! db
                     (into [sql] where-parameters)))))

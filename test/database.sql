@@ -71,6 +71,7 @@ CREATE VIEW "department-employees" AS
 
 -- silly table to test joins
 CREATE TABLE "department-meeting" (
+ id SERIAL PRIMARY KEY,
  "start-time" TIMESTAMP,
  "end-time" TIMESTAMP,
  "subject" TEXT,
@@ -78,8 +79,20 @@ CREATE TABLE "department-meeting" (
  "department2-id" INTEGER NOT NULL REFERENCES department (id)
 );
 
+CREATE TABLE "department-meeting-notes" (
+  "department-meeting-id" INTEGER REFERENCES "department-meeting" (id),
+  time TIMESTAMP,
+  note TEXT
+);
+
 INSERT INTO "department-meeting"
        ("start-time", "end-time", "subject", "department1-id", "department2-id")
 VALUES ('2017-03-07T09:00:00', '2017-03-07T11:00:00',
         'ad campaigns for new widgets',
 	1, 2);
+
+INSERT INTO "department-meeting-notes"
+       ("department-meeting-id", time, note)
+VALUES (1, '2017-03-07T09:01:00', 'Rolf suggested a new campaign called: widgets4all'),
+       (1, '2017-03-07T09:02:00', 'Max seconded the idea, but asked for cost estimates'),
+       (1, '2017-03-07T09:45:00', 'After lengthy dicussion, it was decided that RFPs would be sent to the usual ad agencies');

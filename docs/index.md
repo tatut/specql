@@ -202,9 +202,17 @@ If the join is a `has-many` the nested value is a sequence of maps instead of a 
 
 ## Inserting new data
 
+Specql provides an `insert!` function that takes a database, a table to insert to and a record
+the data to insert. Insertion validates that all fields marked `NOT NULL` are present.
+Insert returns the same input data back with the primary key fields added.
 
-WIP: document insert! function
-
+```clojure
+(insert! db :order/orders
+         {:order/item "space modulator"
+	  :order/price 100M
+	  :order/customer-id 1})
+;; => {:order/id 123 :order/item "space modulator" :order/price 100M :order/customer-id 1}
+```
 
 ## Deleting data
 

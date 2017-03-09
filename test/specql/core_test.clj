@@ -1,5 +1,5 @@
 (ns specql.core-test
-  (:require [specql.core :refer [define-tables fetch insert! delete!]]
+  (:require [specql.core :refer [define-tables fetch insert! delete! upsert!]]
             [specql.op :as op]
             [specql.rel :as rel]
             [clojure.test :as t :refer [deftest is testing]]
@@ -219,6 +219,10 @@
     (jdbc/execute! db "DELETE FROM typetest")
     queried))
 
+(defn same-day? [& dates]
+  (apply =
+         (map (comp (juxt :date :month :year) bean) dates)))
+
 (s/fdef typetest
         :args (s/cat :in :typetest/table-insert)
         :ret :typetest/table-insert
@@ -229,10 +233,8 @@
                  (dissoc (:ret %)
                          :typetest/date))
               ;; dates are on the same day
-              (apply = (map (comp (juxt :date :month :year) bean :typetest/date)
-                            (list (:in (:args %))
-                                  (:ret %))))
-              ))
+              (same-day? (:typetest/date (:in (:args %)))
+                         (:typetest/date (:ret %)))))
 
 (deftest typetest-generate-and-query
   (is (= {:total 1 :check-passed 1}
@@ -328,3 +330,120 @@
     (is (thrown-with-msg?
          AssertionError #"Unknown table"
          (delete! db :foo/bar {:foo/id 1})))))
+
+#_(deftest update
+  (testing "simple update"
+    (is (= 1 (update! db :employee/employees
+                      {:employee/name "Quux Barsky"}
+                      {:employee/id 3})))))
+
+(deftest upsert
+  (testing "update existing"
+
+    (let [emp3 #(first (fetch db :employee/employees
+                              #{:employee/name :employee/employment-started}
+                              {:employee/id 3}))
+          start (java.util.Date.)]
+
+      (is (= {:employee/name "Foo Barsky"
+              :employee/employment-started #inst "2010-07-07T00:00:00.000-00:00"}
+             (emp3)))
+
+      ;; Upsert changes to employee 3
+      (is (= {:employee/name "Bar Foosky"
+              :employee/employment-started start
+              :employee/id 3}
+             (upsert! db :employee/employees
+                      {:employee/id 3
+                       :employee/name "Bar Foosky"
+                       :employee/employment-started start})))
+
+      ;; Fetching it again returns the new values
+      (let [fetched (emp3)]
+        (is (same-day? (:employee/employment-started fetched) start))
+        (is (= "Bar Foosky" (:employee/name fetched))))
+
+      ;; Upsert with a where clause that does not match
+
+      (is (nil? (upsert! db :employee/employees
+                      {:employee/id 3
+                       :employee/name "NOT CHANGED"
+                       :employee/employment-started start}
+                      {:employee/employment-ended op/null?})))
+
+      ;; Verify that name has not been changed
+      (is (= "Bar Foosky" (:employee/name
+                           (first
+                            (fetch db :employee/employees #{:employee/name}
+                                   {:employee/id 3})))))))
+
+
+  (testing "upsert new rows"
+    (let [existing-ids (into #{}
+                             (map :employee/id)
+                             (fetch db :employee/employees #{:employee/id} {}))
+          new-employee (upsert! db :employee/employees
+                                #:employee {:name "Rolf Teflon"
+                                            :department 1
+                                            :employment-started (java.util.Date.)})]
+      (is (contains? new-employee :employee/id))
+      (is (not (existing-ids (:employee/id new-employee)))))))
+
+(deftest upsert-with-columns
+  (testing "upsert with index columns"
+    ;; Change a meeting note via upsert
+
+    (let [notes #(fetch db :department-meeting-notes/notes
+                        #{:department-meeting-notes/department-meeting-id
+                          :department-meeting-notes/time
+                          :department-meeting-notes/note}
+                        {})]
+      (is (= 3 (count (notes))))
+      (let [changed-note
+            #:department-meeting-notes {:department-meeting-id 1
+                                        :time #inst "2017-03-07T09:01:00.000-00:00"
+                                        :note "NOTE CHANGED"}]
+
+        (is (thrown-with-msg?
+             AssertionError #"No conflict target"
+             ;; upsert fails, table has no primary key and we havent
+             ;; specified a conflict target
+             (upsert! db :department-meeting-notes/notes changed-note)))
+
+        (is (= changed-note
+               (upsert! db
+                        :department-meeting-notes/notes
+                        #{:department-meeting-notes/department-meeting-id
+                          :department-meeting-notes/time}
+                        changed-note)))
+
+        (println "NOTES: " (notes))
+        ;; Note count is still the same
+        (is (= 3 (count (notes))))
+
+        ;; The changed text is there
+        (is (some #(= "NOTE CHANGED" (:department-meeting-notes/note %))
+                  (notes)))
+
+        ;; Test non-matching where clause
+        (is (nil?
+             (upsert! db
+                      :department-meeting-notes/notes
+                      #{:department-meeting-notes/department-meeting-id
+                        :department-meeting-notes/time}
+                      changed-note
+                      {:department-meeting-notes/note "THIS WONT MATCH ANYTHING"})))
+        (is (= 3 (count (notes))))
+
+
+        ;; Change time so that a new row is inserted
+        (upsert! db :department-meeting-notes/notes
+                 #{:department-meeting-notes/department-meeting-id
+                   :department-meeting-notes/time}
+                 #:department-meeting-notes {:department-meeting-id 1
+                                             :time (java.util.Date.)
+                                             :note "NOTE ADDED"})
+
+        (is (= 4 (count (notes))))
+        (is (some #(= "NOTE ADDED" (:department-meeting-notes/note %))
+                  (notes)))))))

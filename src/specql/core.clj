@@ -159,6 +159,15 @@
           (s/explain-str spec value))
   value)
 
+(defn- assert-table [table]
+  (assert (@table-info-registry table)
+          (str "Unknown table " table ", call define-tables!")))
+
+(defn- q
+  "Surround string with doublequotes"
+  [string]
+  (str "\"" string "\""))
+
 (defn- fetch-columns
   "Return a map of column alias to vector of [sql-accessor result-path]"
   [table-info-registry table table-alias alias-fn column->path]
@@ -418,61 +427,61 @@
          (partition 2 1 table-alias))))
 
 (defn fetch [db table columns where]
+  (assert-table table)
   (let [table-info-registry @table-info-registry
         {table-name :name table-columns :columns :as table-info}
-        (table-info-registry table)]
-    (assert table-info (str "Unknown table " table ", call define-tables!"))
-    (let [alias-fn (gen-alias)
-          alias (alias-fn table)
-          table-alias (fetch-tables table-info-registry alias-fn
-                                    table alias columns)
+        (table-info-registry table)
+        alias-fn (gen-alias)
+        alias (alias-fn table)
+        table-alias (fetch-tables table-info-registry alias-fn
+                                  table alias columns)
 
-          cols (reduce merge
-                       {}
-                       (for [[table alias _ _ columns] table-alias]
-                         (fetch-columns table-info-registry table alias alias-fn columns)))
+        cols (reduce merge
+                     {}
+                     (for [[table alias _ _ columns] table-alias]
+                       (fetch-columns table-info-registry table alias alias-fn columns)))
 
-          has-many-join-cols (has-many-join-columns table-alias alias-fn)
+        has-many-join-cols (has-many-join-columns table-alias alias-fn)
 
-          [group-fn process-collections]
-          (if (empty? has-many-join-cols)
-            ;; No has-many joins, don't do collection processing
-            [nil identity]
+        [group-fn process-collections]
+        (if (empty? has-many-join-cols)
+          ;; No has-many joins, don't do collection processing
+          [nil identity]
 
-            ;; Create a function to add rows to collections
-            (collection-processing-fn has-many-join-cols))
-          ;;_ (println "TABLES: " (pr-str table-alias))
-          path->table (path->table-mapping table-alias)
-          [where-clause where-parameters]
-          (sql-where table-info-registry path->table where)
+          ;; Create a function to add rows to collections
+          (collection-processing-fn has-many-join-cols))
+        ;;_ (println "TABLES: " (pr-str table-alias))
+        path->table (path->table-mapping table-alias)
+        [where-clause where-parameters]
+        (sql-where table-info-registry path->table where)
 
-          all-cols (into cols has-many-join-cols)
-          sql (str "SELECT " (sql-columns-list all-cols)
-                   " FROM " (sql-from table-info-registry table-alias)
-                   (when-not (str/blank? where-clause)
-                     (str " WHERE " where-clause)))
-          row (gensym "row")
-          sql-and-parameters (into [sql] where-parameters)]
+        all-cols (into cols has-many-join-cols)
+        sql (str "SELECT " (sql-columns-list all-cols)
+                 " FROM " (sql-from table-info-registry table-alias)
+                 (when-not (str/blank? where-clause)
+                   (str " WHERE " where-clause)))
+        row (gensym "row")
+        sql-and-parameters (into [sql] where-parameters)]
 
-      ;;(println "SQL: " (pr-str sql-and-parameters))
-      (process-collections
-       (map
-        ;; Process each row and remap the columns
-        ;; to the namespaced keys we want.
-        (fn [resultset-row]
-          (with-meta
-            (reduce (fn [row [resultset-kw [_ output-path]]]
-                      (let [v (resultset-kw resultset-row)]
-                        (if (nil? v)
-                          row
-                          (assoc-in row output-path v))))
-                    {}
-                    cols)
-            (when group-fn
-              {::group (group-fn resultset-row)})))
+    ;;(println "SQL: " (pr-str sql-and-parameters))
+    (process-collections
+     (map
+      ;; Process each row and remap the columns
+      ;; to the namespaced keys we want.
+      (fn [resultset-row]
+        (with-meta
+          (reduce (fn [row [resultset-kw [_ output-path]]]
+                    (let [v (resultset-kw resultset-row)]
+                      (if (nil? v)
+                        row
+                        (assoc-in row output-path v))))
+                  {}
+                  cols)
+          (when group-fn
+            {::group (group-fn resultset-row)})))
 
-        ;; Query the generated SQL with the where map arguments
-        (jdbc/query db sql-and-parameters))))))
+      ;; Query the generated SQL with the where map arguments
+      (jdbc/query db sql-and-parameters)))))
 
 (defn- insert-columns-and-values [table-info-registry table record]
   (let [table-columns (:columns (table-info-registry table))]
@@ -513,21 +522,24 @@
                      (conj value-parameters value)
                      columns))))))))
 
+(defn- primary-key-columns [columns]
+  (into {}
+        (keep (fn [[kw {pk? :primary-key?}]]
+                (when pk?
+                  [kw [kw]]))
+              columns)))
+
 (defn insert!
   "Insert a record to the given table. Returns the inserted record with the
   (possibly generated) primary keys added."
   [db table-kw record]
+  (assert-table table-kw)
   (let [table-info-registry @table-info-registry
         {table-name :name columns :columns
          insert-spec :insert-spec-kw :as table}
         (table-info-registry table-kw)]
-    (assert table (str "Unknown table " table ", call define-tables!"))
     (assert-spec insert-spec record)
-    (let [primary-key-columns (into {}
-                                    (keep (fn [[kw {pk? :primary-key?}]]
-                                            (when pk?
-                                              [kw [kw]]))
-                                          columns))
+    (let [primary-key-columns (primary-key-columns columns)
           alias-fn (gen-alias)
           alias (alias-fn :ins)
           cols (when-not (empty? primary-key-columns)
@@ -555,8 +567,7 @@
   "Delete rows from table that match the given search criteria.
   Returns the number of rows deleted."
   [db table where]
-  (assert (@table-info-registry table)
-          (str "Unknown table " table ", call define-tables!"))
+  (assert-table table)
   (let [table-info-registry @table-info-registry
         {table-name :name} (table-info-registry table)
         alias-fn (gen-alias)
@@ -574,3 +585,91 @@
     (first
      (jdbc/execute! db
                     (into [sql] where-parameters)))))
+
+(s/def ::keyset-record-where
+  (s/cat :keyset (s/? (s/and (s/coll-of keyword?)
+                             set?))
+         :record (s/map-of keyword? any?)
+         :where (s/? (s/map-of keyword? any?))))
+
+
+(defn upsert!
+  "Atomically UPDATE or INSERT record"
+  [db table & keyset-record-where]
+  (assert-table table)
+  (let [table-info-registry @table-info-registry
+        {table-name :name table-columns :columns
+         insert-spec :insert-spec-kw :as table-info}
+        (table-info-registry table)
+
+        {:keys [keyset record where]}
+        (s/conform ::keyset-record-where keyset-record-where)
+
+        record (assert-spec insert-spec record)
+
+        primary-keys (primary-key-columns table-columns)
+        conflict-keys (or keyset
+                          (keys primary-keys))
+        conflict-target (map (comp :name table-columns)
+                             conflict-keys)
+        conflict-target-column? (into #{} conflict-target)
+
+        _ (assert (not (empty? conflict-target))
+                  (str "No conflict target, if table has no primary key, specify a column set"))
+        _ (assert (every? string? conflict-target)
+                  (str "Unknown columns in conflict target " (pr-str conflict-keys)))
+
+        ;; If a keyset was provided, make sure all keys are in the input record.
+        ;; Dont check for primary keys (they are often autogenerated serials)
+        _ (assert (or (nil? keyset)
+                      (every? (partial contains? record) conflict-keys))
+                  (str "Conflict target contains columns that are not in the record to upsert: "
+                       (pr-str (into #{}
+                                     (remove (partial contains? record))
+                                     conflict-keys))))
+        alias-fn (gen-alias)
+        alias (alias-fn table)
+
+        [column-names value-names value-parameters]
+        (insert-columns-and-values table-info-registry table record)
+
+        [where-clause where-parameters]
+        (sql-where table-info-registry
+                   #(when (= % [])
+                      {:table table
+                       :alias alias})
+                   where)
+
+
+
+        cols (when-not (empty? primary-keys)
+               (fetch-columns table-info-registry table alias alias-fn primary-keys))
+        sql (str "INSERT INTO \"" table-name "\" AS " alias " "
+                 "(" (str/join "," (map q column-names)) ") "
+                 "VALUES (" (str/join "," value-names) ") "
+                 "ON CONFLICT (" (str/join "," (map q conflict-target)) ") "
+                 "DO UPDATE SET " (str/join ","
+                                            (keep #(when-not (conflict-target-column? %)
+                                                     (str (q %) " = EXCLUDED." (q %)))
+                                                  column-names))
+                 (when-not (str/blank? where-clause)
+                   (str " WHERE "  where-clause))
+                 (when cols
+                   (str " RETURNING " (sql-columns-list cols))))
+
+        sql-and-params (into [sql]
+                             (concat value-parameters where-parameters))]
+
+    (if (empty? primary-keys)
+      ;; No returning clause, execute and check affected rows count
+      (if (zero? (first (jdbc/execute! db sql-and-params)))
+        nil
+        record)
+
+      ;; Returning primary keys, do query and add them to record
+      (let [result (first (jdbc/query db sql-and-params))]
+        (when result
+          (reduce (fn [record [resultset-kw [_ output-kw]]]
+                    (assoc-in record output-kw (result resultset-kw)))
+                  record
+                  cols))))))

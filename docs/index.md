@@ -229,3 +229,50 @@ If you really need to delete all rows from a table, use PostgreSQL `TRUNCATE` co
 	  :order/date (op/< #inst "1970-01-01T00:00:00.000-00:00")})
 ;; => number of rows deleted
 ```
+
+## Update
+
+Specql provides a basic `update!` function that can be used to set values new values.
+Only direct values can be set, updating based on an operator is not supported. Update
+returns the number of affected rows.
+
+```clojure
+(update! db :order/orders
+         ;; new values to set
+         {:order/state "delivered"}
+         ;; the where clause
+         {:order/id 123})
+;; => 1
+```
+
+## Upsert (UPDATE or INSERT)
+
+PostgreSQL supports an atomic UPDATE or INSERT since version 9.5. Specql provides
+a function `upsert!` which takes advantage of the feature.
+
+Upsert takes three required parameters: the database connection, the table to upsert
+to and the record to upsert. By default upsert is made with a conflict target on
+the primary key. To provide another set of columns to upsert on, an optional second
+argument can be provided. The set of columns must have a unique index on the table.
+Upsert takes an optional where record that can be used to constrain the update
+by checking for values in the conflicting database row. This can be used for
+security purposes.
+
+Upsert returns the same record back on success with the primary key added (if the
+primary key was not the conflict target). If a conflict occurs but the update was
+not applied because the where clause did not match, `upsert!` will return `nil`.
+
+Note that upsert will update only the fields passed in the record, any existing
+fields are left unchanged.
+
+```clojure
+(upsert! db :order/orders
+         ;; record to insert (or update)
+         {:order/id 1 :order/state "shipped" :order/customer-id 42
+	  :order/item "a fine leather jacket" :order/price 1000M}
+
+         ;; a where clause to check that user cannot update someone
+	 ;; else's orders
+	 {:order/customer-id 42})
+;; => {:order/id 1 :order/state "shipped"}
+```

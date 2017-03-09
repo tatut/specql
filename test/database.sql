@@ -85,6 +85,9 @@ CREATE TABLE "department-meeting-notes" (
   note TEXT
 );
 
+-- For testing upsert!
+CREATE UNIQUE INDEX ON "department-meeting-notes" ("department-meeting-id", time);
+
 INSERT INTO "department-meeting"
        ("start-time", "end-time", "subject", "department1-id", "department2-id")
 VALUES ('2017-03-07T09:00:00', '2017-03-07T11:00:00',

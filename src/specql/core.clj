@@ -4,7 +4,9 @@
             [specql.data-types :as d]
             [clojure.string :as str]
             [specql.op :as op]
-            [specql.rel :as rel]))
+            [specql.rel :as rel]
+            [specql.impl.catalog :refer :all]
+            [specql.impl.registry :refer :all]))
 
 ;; Extend java.util.Date to be a SQL timestamp parameter
 (extend-protocol jdbc/ISQLValue
@@ -12,86 +14,6 @@
   (sql-value [dt]
     (java.sql.Timestamp. (.getTime dt))))
 
-
-(def ^:private relkind-q "SELECT relkind FROM pg_catalog.pg_class WHERE relname=?")
-(def ^:private columns-q (str "SELECT attr.attname AS name, attr.attnum AS number,"
-                    "attr.attnotnull AS \"not-null?\","
-                    "attr.atthasdef AS \"has-default?\","
-                    "t.typname AS type, "
-                    "EXISTS(SELECT indkey FROM pg_catalog.pg_index i "
-                    "        WHERE i.indrelid=attr.attrelid AND attr.attnum=ANY(i.indkey) AND i.indisprimary=TRUE) AS \"primary-key?\","
-                    "EXISTS(SELECT e.enumtypid FROM pg_catalog.pg_enum e WHERE e.enumtypid = t.oid) AS \"enum?\""
-                    "FROM pg_catalog.pg_attribute attr "
-                    "JOIN pg_catalog.pg_class cls ON attr.attrelid = cls.oid "
-                    "JOIN pg_catalog.pg_type t ON attr.atttypid = t.oid "
-                    "WHERE cls.relname = ? AND attnum > 0"))
-(def ^:private enum-values-q (str "SELECT e.enumlabel AS value"
-                        "  FROM pg_type t"
-                        "       JOIN pg_enum e ON t.oid = e.enumtypid"
-                        "       JOIN pg_catalog.pg_namespace n ON n.oid = t.typnamespace"
-                        " WHERE t.typname=?"))
-
-(defn- enum-values [db enum-type-name]
-  (into #{}
-        (map :value)
-        (jdbc/query db [enum-values-q enum-type-name])))
-
-(defn- table-info [db name]
-  (let [relkind (-> (jdbc/query db [relkind-q name])
-                    first :relkind)]
-    (if (empty? relkind)
-      ;; Not a table or composite type, try an enum
-      (let [values (enum-values db name)]
-        (assert (not (empty? values))
-                (str "Don't know what " name " is. Not a table, composite type or enum."))
-        {:name name
-         :type :enum
-         :values values})
-
-      (let [columns (jdbc/query db [columns-q name])]
-        {:name name
-         :type (case relkind
-                 "c" :composite
-                 "r" :table
-                 "v" :view)
-         :columns (into {}
-                        (map (juxt :name identity))
-                        columns)}))))
-
-
-(defonce table-info-registry (atom {}))
-
-(defn- process-columns [{columns :columns :as table-info} ns-name]
-  (assoc table-info
-         :columns (reduce-kv (fn [columns name column]
-                               (assoc columns
-                                      (keyword ns-name name)
-                                      column))
-                             {} columns)))
-
-(defn- composite-type
-  "Find user defined composite type from registry by name."
-  ([name] (composite-type @table-info-registry name))
-  ([table-info-registry name]
-   (some (fn [[key {n :name t :type}]]
-           (and (= :composite t)
-                (= name n)
-                key))
-         table-info-registry)))
-
-(defn- enum-type
-  "Find an enum type from registry by name."
-  ([name] (enum-type @table-info-registry name))
-  ([table-info-registry name]
-   (some (fn [[key {n :name t :type}]]
-           (and (= :enum t)
-                (= name n)
-                key))
-         table-info-registry)))
-
-(defn- required-insert? [{:keys [not-null? has-default?]}]
-  (and not-null?
-       (not has-default?)))
 
 (defmacro define-tables
   "Define specs and register query info for the given tables and user defined types.
@@ -412,7 +334,7 @@
 (defn- has-many-join-columns
   "If there are many-to-many joins, add postgres physical row identity field to the
   result so that we can use it to detect unique rows.
-  The resultset processing will use the primary key fields to detect same rows and
+  The resultset processing will use the ctid fields to detect same rows and
   add nested maps to the correct sequences."
   [table-alias alias-fn]
   (vec

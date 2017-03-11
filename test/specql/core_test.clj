@@ -1,5 +1,5 @@
 (ns specql.core-test
-  (:require [specql.core :refer [define-tables fetch insert! delete! upsert!]]
+  (:require [specql.core :refer [define-tables fetch insert! delete! update! upsert!]]
             [specql.op :as op]
             [specql.rel :as rel]
             [clojure.test :as t :refer [deftest is testing]]
@@ -331,11 +331,26 @@
          AssertionError #"Unknown table"
          (delete! db :foo/bar {:foo/id 1})))))
 
-#_(deftest update
+(deftest updating
   (testing "simple update"
     (is (= 1 (update! db :employee/employees
                       {:employee/name "Quux Barsky"}
-                      {:employee/id 3})))))
+                      {:employee/id 3})))
+
+    (is (= "Quux Barsky"
+           (:employee/name
+            (first
+             (fetch db :employee/employees
+                    #{:employee/name}
+                    {:employee/id 3}))))))
+
+  (testing "update unknown columns"
+    (is (thrown-with-msg?
+         AssertionError #"Unknown columns"
+         (update! db :employee/employees
+                  {:employee/name "foo"
+                   :employee/no-such-field "bar"}
+                  {:employee/id 1})))))
 
 (deftest upsert
   (testing "update existing"
@@ -417,7 +432,6 @@
                           :department-meeting-notes/time}
                         changed-note)))
 
-        (println "NOTES: " (notes))
         ;; Note count is still the same
         (is (= 3 (count (notes))))
 

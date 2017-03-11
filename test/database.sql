@@ -56,8 +56,10 @@ CREATE TABLE typetest (
  text text NOT NULL,
  date date NOT NULL,
  bool bool NOT NULL,
- q quark,
- ts TIMESTAMP
+ q quark NOT NULL,
+ ts TIMESTAMP NOT NULL,
+ uuid uuid NOT NULL,
+ bytes bytea NOT NULL
 );
 
 

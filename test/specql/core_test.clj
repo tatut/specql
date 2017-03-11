@@ -214,7 +214,8 @@
                  (fetch db :typetest/table
                         #{:typetest/int :typetest/numeric
                           :typetest/text :typetest/date
-                          :typetest/bool :typetest/q :typetest/ts}
+                          :typetest/bool :typetest/q :typetest/ts
+                          :typetest/uuid :typetest/bytes}
                         {}))]
     (jdbc/execute! db "DELETE FROM typetest")
     queried))
@@ -226,15 +227,21 @@
 (s/fdef typetest
         :args (s/cat :in :typetest/table-insert)
         :ret :typetest/table-insert
-        :fn #(and
-              ;; other than dates, the maps are identical
-              (= (dissoc (:in (:args %))
-                         :typetest/date)
-                 (dissoc (:ret %)
-                         :typetest/date))
-              ;; dates are on the same day
-              (same-day? (:typetest/date (:in (:args %)))
-                         (:typetest/date (:ret %)))))
+        :fn #(let [in (:in (:args %))
+                   out (:ret %)]
+               (and
+                ;; other than dates and byte arrays, the maps are identical
+                (= (dissoc in
+                           :typetest/date :typetest/bytes)
+                   (dissoc out
+                           :typetest/date :typetest/bytes))
+                ;; dates are on the same day
+                (same-day? (:typetest/date in)
+                           (:typetest/date out))
+
+                ;; bytearrays have the same bytes
+                (= (vec (:typetest/bytes in))
+                   (vec (:typetest/bytes out))))))
 
 (deftest typetest-generate-and-query
   (is (= {:total 1 :check-passed 1}

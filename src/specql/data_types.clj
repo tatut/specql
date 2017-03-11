@@ -14,3 +14,10 @@
 (s/def ::numeric bigdec?)
 (s/def ::text string?)
 (s/def ::bool boolean?)
+
+(s/def ::uuid uuid?)
+(s/def ::bytea bytes?)
+
+;; FIXME: support more postgres types
+#_(remove #(or (str/starts-with? % "pg_") (str/starts-with? % "_"))
+        (map :typname (jdbc/query db [ "SELECT distinct(typname) from pg_type"])))

@@ -12,6 +12,8 @@ You can then query for rows by giving a table, the keys to return and a map of k
 
 # usage
 
+See the [docs](https://tatut.github.io/specql) for more examples.
+
 ```clojure
 (def db (make-my-db))
 
@@ -48,10 +50,13 @@ You can then query for rows by giving a table, the keys to return and a map of k
 This is very much still work in progress.
 
 Features I intend to implement:
-* update
+* ~~fetch~~
+* ~~update~~
 * ~~insert~~
+* ~~upsert~~
+* ~~delete~~
 * ~~JOIN navigation: has-one~~
-* JOIN navigation: has-many
+* ~~JOIN navigation: has-many~~
 * ~~standard operators for where  ({:employee/name (like "%Smith%")})~~
 * ~~unpacking composite types (user defined record types as column values should be nested maps)~~
 

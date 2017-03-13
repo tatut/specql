@@ -8,6 +8,7 @@
                     "attr.attnotnull AS \"not-null?\","
                     "attr.atthasdef AS \"has-default?\","
                     "t.typname AS type, "
+                    "t.typcategory AS category, "
                     "EXISTS(SELECT indkey FROM pg_catalog.pg_index i "
                     "        WHERE i.indrelid=attr.attrelid AND attr.attnum=ANY(i.indkey) AND i.indisprimary=TRUE) AS \"primary-key?\","
                     "EXISTS(SELECT e.enumtypid FROM pg_catalog.pg_enum e WHERE e.enumtypid = t.oid) AS \"enum?\""

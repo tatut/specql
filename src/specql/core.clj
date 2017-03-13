@@ -62,8 +62,14 @@
                             :opt [~@(keys optional-insert)]))
 
                   ;; Create specs for columns
-                  ~@(for [[kw {type :type :as column}] columns
-                          :let [type-spec (or (composite-type table-info type)
+                  ~@(for [[kw {type :type
+                               category :category
+                               :as column}] columns
+                          :let [array? (= "A" category)
+                                type (if array?
+                                       (subs type 1)
+                                       type)
+                                type-spec (or (composite-type table-info type)
                                               (and (:enum? column)
                                                    (or
                                                     ;; previously registered enum type
@@ -72,7 +78,9 @@
                                                     (enum-values db type)))
                                               (keyword "specql.data-types" type))]
                           :when type-spec]
-                      `(s/def ~kw ~type-spec)))))))))
+                      `(s/def ~kw ~(if array?
+                                     `(s/coll-of ~type-spec)
+                                     type-spec))))))))))
 
 (defn- assert-spec
   "Unconditionally assert that value is valid for spec. Returns value."

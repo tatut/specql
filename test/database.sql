@@ -101,3 +101,24 @@ INSERT INTO "department-meeting-notes"
 VALUES (1, '2017-03-07T09:01:00', 'Rolf suggested a new campaign called: widgets4all'),
        (1, '2017-03-07T09:02:00', 'Max seconded the idea, but asked for cost estimates'),
        (1, '2017-03-07T09:45:00', 'After lengthy dicussion, it was decided that RFPs would be sent to the usual ad agencies');
+
+
+--- Test array and composite type
+
+CREATE TYPE recipient AS (
+  name varchar,
+  address address
+);
+
+CREATE TABLE mailinglist (
+  name varchar,
+  recipients recipient[]
+);
+
+INSERT INTO mailinglist (name, recipients)
+VALUES ('Fake News Quarterly',
+        ARRAY[
+         ROW('Max Syöttöpaine', ROW('Kujatie 1','90100','FI')::address)::recipient,
+         ROW('Erno Penttikoski', ROW('Tiekuja 3','90666','FI')::address)::recipient,
+	 ROW('Henna Lindberg', ROW('Kujakuja 5','4242','FI')::address)::recipient
+        ]::recipient[]);

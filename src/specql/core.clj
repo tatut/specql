@@ -6,7 +6,8 @@
             [specql.op :as op]
             [specql.rel :as rel]
             [specql.impl.catalog :refer :all]
-            [specql.impl.registry :refer :all]))
+            [specql.impl.registry :as registry :refer :all]
+            [specql.impl.composite :as composite]))
 
 ;; Extend java.util.Date to be a SQL timestamp parameter
 (extend-protocol jdbc/ISQLValue
@@ -38,7 +39,20 @@
                                                 (keyword ns (str (name table-keyword) "-insert")))
                                          (process-columns ns)
                                          (assoc :rel rel))])))
-                           tables)]
+                           tables)
+          table-info (reduce-kv
+                      (fn [m k v]
+                        (assoc m k
+                               (update v :columns
+                                       (fn [columns]
+                                         (reduce-kv
+                                          (fn [cols key val]
+                                            (assoc cols key
+                                                   (registry/array-element-type table-info val)))
+                                          {}
+                                          columns)))))
+                      {}
+                      table-info)]
 
       `(do
          ;; Register table info so that it is available at runtime
@@ -104,7 +118,8 @@
   (let [table-columns (:columns (table-info-registry table))]
     (reduce
      (fn [cols [column-kw result-path]]
-       (let [name (:name (table-columns column-kw))
+       (let [col (table-columns column-kw)
+             name (:name col)
              composite-type-kw (composite-type name)]
          (assert name (str "Unknown column " column-kw " for table " table))
          (if composite-type-kw
@@ -115,12 +130,13 @@
                         (map (fn [[field-kw field]]
                                [(keyword (alias-fn name))
                                 [(str "(" table-alias ".\"" name "\").\"" (:name field) "\"")
-                                 (into result-path [field-kw])]]))
+                                 (into result-path [field-kw])
+                                 col]]))
                         (:columns (table-info-registry composite-type-kw))))
            ;; A regular field
            (assoc cols
                   (keyword (alias-fn name))
-                  [(str table-alias ".\"" name "\"") result-path]))))
+                  [(str table-alias ".\"" name "\"") result-path col]))))
      {} column->path)))
 
 (defn- sql-columns-list [cols]
@@ -356,6 +372,21 @@
                has-many-collection]]))
          (partition 2 1 table-alias))))
 
+(defn- post-process-arrays-fn [path->array-type]
+  (let [tir @table-info-registry]
+    (fn [results]
+      (doall
+       (map
+        (fn [row]
+          (reduce
+           (fn [row [path array-type]]
+             (update-in row path
+                        (fn [arr]
+                          (composite/parse tir array-type (str arr)))))
+           row
+           path->array-type))
+        results)))))
+
 (defn fetch [db table columns where]
   (assert-table table)
   (let [table-info-registry @table-info-registry
@@ -380,7 +411,7 @@
 
           ;; Create a function to add rows to collections
           (collection-processing-fn has-many-join-cols))
-        ;;_ (println "TABLES: " (pr-str table-alias))
+
         path->table (path->table-mapping table-alias)
         [where-clause where-parameters]
         (sql-where table-info-registry path->table where)
@@ -391,27 +422,45 @@
                  (when-not (str/blank? where-clause)
                    (str " WHERE " where-clause)))
         row (gensym "row")
-        sql-and-parameters (into [sql] where-parameters)]
+        sql-and-parameters (into [sql] where-parameters)
 
+        array-paths (into {}
+                          (keep (fn [[_ [_ path col]]]
+                                  (when (= "A" (:category col))
+                                    [path col])))
+                          cols)
+
+        process-collections (if (empty? array-paths)
+                              process-collections
+                              (comp (post-process-arrays-fn array-paths)
+                                    process-collections))]
+
+    ;;(println "cols: " (pr-str cols))
     ;;(println "SQL: " (pr-str sql-and-parameters))
-    (process-collections
-     (map
-      ;; Process each row and remap the columns
-      ;; to the namespaced keys we want.
-      (fn [resultset-row]
-        (with-meta
-          (reduce (fn [row [resultset-kw [_ output-path]]]
-                    (let [v (resultset-kw resultset-row)]
-                      (if (nil? v)
-                        row
-                        (assoc-in row output-path v))))
-                  {}
-                  cols)
-          (when group-fn
-            {::group (group-fn resultset-row)})))
 
-      ;; Query the generated SQL with the where map arguments
-      (jdbc/query db sql-and-parameters)))))
+    ;; Post process: parse arrays after joined collections
+    ;; have been processed. So that we don't unnecessarily parse
+    ;; the same array many times
+    (jdbc/with-db-connection [db db]
+      (process-collections
+       (map
+        ;; Process each row and remap the columns
+        ;; to the namespaced keys we want.
+        (fn [resultset-row]
+          (with-meta
+            (reduce
+             (fn [row [resultset-kw [_ output-path]]]
+               (let [v (resultset-kw resultset-row)]
+                 (if (nil? v)
+                   row
+                   (assoc-in row output-path v))))
+             {}
+             cols)
+            (when group-fn
+              {::group (group-fn resultset-row)})))
+
+        ;; Query the generated SQL with the where map arguments
+        (jdbc/query db sql-and-parameters))))))
 
 (defn- insert-columns-and-values [table-info-registry table record]
   (let [table-columns (:columns (table-info-registry table))]

@@ -47,7 +47,12 @@
   ["department-meeting-notes" :department-meeting-notes/notes
    {:department-meeting-notes/department-meeting (rel/has-one :department-meeting-notes/department-meeting-id
                                                               :department-meeting/meetings
-                                                              :department-meeting/id)}])
+                                                              :department-meeting/id)}]
+
+
+  ["recipient" :recipient/recipient]
+  ["mailinglist" :mailinglist/mailinglist]
+  )
 
 (deftest tables-have-been-created
   ;; If test data has been inserted, we know that all tables were create
@@ -468,3 +473,20 @@
         (is (= 4 (count (notes))))
         (is (some #(= "NOTE ADDED" (:department-meeting-notes/note %))
                   (notes)))))))
+
+(deftest array-parsing
+  (let [rcpt (fn [name street postal country]
+               #:recipient{:name name
+                           :address #:address{:street street
+                                              :postal-code postal
+                                              :country country}})]
+    (testing "Values in arrays are parsed"
+      (is (= #:mailinglist{:name "Fake News Quarterly"
+                           :recipients
+                           [(rcpt "Max Syöttöpaine" "Kujatie 1" "90100" "FI")
+                            (rcpt "Erno Penttikoski" "Tiekuja 3" "90666" "FI")
+                            (rcpt "Henna Lindberg" "Tiekuja 5" "4242" "FI")]})
+          (first
+           (fetch db :mailinglist/mailinglist
+                  #{:mailinglist/name :mailinglist/recipients}
+                  {}))))))

@@ -1,6 +1,8 @@
 (ns specql.data-types
   (:require [clojure.spec :as s]))
 
+(when-not (resolve 'any?)
+  (require '[clojure.future :refer :all]))
 
 (s/def ::int4 (s/int-in -2147483648 2147483647))
 (s/def ::int8 (s/int-in -9223372036854775808 9223372036854775807))

@@ -9,6 +9,10 @@
             [specql.impl.registry :as registry :refer :all]
             [specql.impl.composite :as composite]))
 
+;; Remove this when 1.9 is out
+(when-not (resolve 'any?)
+  (require '[clojure.future :refer :all]))
+
 ;; Extend java.util.Date to be a SQL timestamp parameter
 (extend-protocol jdbc/ISQLValue
   java.util.Date

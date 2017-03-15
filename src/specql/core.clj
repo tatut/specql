@@ -124,7 +124,7 @@
      (fn [cols [column-kw result-path]]
        (let [col (table-columns column-kw)
              name (:name col)
-             composite-type-kw (composite-type name)]
+             composite-type-kw (composite-type (:type col))]
          (assert name (str "Unknown column " column-kw " for table " table))
          (if composite-type-kw
            ;; This field is a composite type, add "(field).subfield" accessors

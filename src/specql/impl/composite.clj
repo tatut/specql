@@ -7,6 +7,7 @@
   (:import (org.postgresql.util PGtokenizer)))
 
 (defn- matching [string start-ch end-ch start-idx]
+  ;(println "MATCHING: " string "; ch: " start-ch "from: " start-idx)
   (assert (= start-ch (.charAt string start-idx)))
   (loop [i (inc start-idx)
          nesting 0]
@@ -43,6 +44,7 @@
       (recur (inc idx)))))
 
 (defn- split-elements [elements idx]
+  ;(println "SPLIT ELEMENTS: " elements)
   (let [end (.length elements)]
     (loop [acc []
            idx 0]
@@ -59,6 +61,11 @@
             (= \( ch)
             (let [[elt new-idx] (matching elements \( \) idx)]
               (recur (conj acc (str "(" elt ")"))
+                     (inc new-idx)))
+
+            (= \{ ch)
+            (let [[elt new-idx] (matching elements \{ \} idx)]
+              (recur (conj acc (str "{" elt "}"))
                      (inc new-idx)))
 
             ;; Read non-quoted value
@@ -94,16 +101,33 @@
 (defmethod parse-value "text" [_ string] string)
 (defmethod parse-value "uuid" [ _ string] (java.util.UUID/fromString string))
 
+(defn- pg-datetime [string]
+  (.parse (java.text.SimpleDateFormat. "yyyy-MM-dd HH:mm:ss")
+          string))
+
+(defmethod parse-value "timestamp" [_ string]
+  (pg-datetime string))
+
 ;; FIXME: support all types here as well
 
+(defn parse-enum [values element]
+  (assert (values element)
+          (str "Unknown enum value: " element ", valid values: " (pr-str values)))
+  element)
 
 (defn parse [table-info-registry type string]
+  ;(println "PARSE: " (pr-str type))
   (if (= "A" (:category type))
     (let [elements (split-elements (first (matching string \{ \} 0)) 0)
           element-parser
-          (if-let [composite-type (table-info-registry (:element-type type))]
-            ;; Parse a composite value
-            (partial parse-composite table-info-registry composite-type)
+          (if-let [composite-or-enum-type (table-info-registry (:element-type type))]
+            (case (:type composite-or-enum-type)
+              :composite
+              ;; Parse a composite value
+              (partial parse-composite table-info-registry composite-or-enum-type)
+
+              :enum
+              (partial parse-enum (:values composite-or-enum-type)))
 
             (partial parse-value (:element-type type)))]
       (into []
@@ -112,4 +136,6 @@
 
     (if-let [ct (registry/composite-type table-info-registry (:type type))]
       (parse-composite table-info-registry (table-info-registry ct) string)
-      (parse-value (:type type) string))))
+      (if-let [et (registry/enum-type table-info-registry (:type type))]
+        (parse-enum (:values (table-info-registry et)) string)
+        (parse-value (:type type) string)))))

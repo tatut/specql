@@ -87,14 +87,17 @@
                                 type (if array?
                                        (subs type 1)
                                        type)
-                                type-spec (or (composite-type table-info type)
-                                              (and (:enum? column)
-                                                   (or
-                                                    ;; previously registered enum type
-                                                    (enum-type table-info type)
-                                                    ;; just the values as spec
-                                                    (enum-values db type)))
-                                              (keyword "specql.data-types" type))]
+                                type-spec
+                                (if array?
+                                  (:element-type column)
+                                  (or (composite-type table-info type)
+                                      (and (:enum? column)
+                                           (or
+                                            ;; previously registered enum type
+                                            (enum-type table-info type)
+                                            ;; just the values as spec
+                                            (enum-values db type)))
+                                      (keyword "specql.data-types" type)))]
                           :when type-spec]
                       `(s/def ~kw ~(if array?
                                      `(s/coll-of ~type-spec)

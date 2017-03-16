@@ -324,7 +324,14 @@
   all rows and combines results."
   [has-many-join-cols]
   (let [group-fn (apply juxt (map first has-many-join-cols))
-        last-idx (dec (count has-many-join-cols))]
+        last-idx (dec (count has-many-join-cols))
+        vectorize (fn [row]
+                    ;; Make sure collections are vectors
+                    (reduce (fn [row [_ [_ path]]]
+                              (update-in row path
+                                         #(if (vector? %) % [%])))
+                            row
+                            has-many-join-cols))]
     [group-fn
      (fn [results]
        ;; PENDING: Make this a lazy operation
@@ -333,7 +340,7 @@
               previous-group (::group (meta previous-row))
               [row & rows] (rest results)]
          (if-not row
-           (seq (conj acc previous-row))
+           (seq (conj acc (vectorize previous-row)))
            (let [row-group (::group (meta row))]
              ;; Go through the group in reverse order, if a ctid is changed
              ;; add to the corresponding collection.
@@ -358,7 +365,8 @@
                       combined-row row-group
                       rows)
 
-               (recur (conj acc previous-group)
+               (recur (conj acc
+                            (vectorize previous-group))
                       row row-group
                       rows))))))]))
 
@@ -387,9 +395,21 @@
         (fn [row]
           (reduce
            (fn [row [path array-type]]
-             (update-in row path
-                        (fn [arr]
-                          (composite/parse tir array-type (str arr)))))
+             (let [parse-composite (fn [arr]
+                                     (let [string (str arr)]
+                                       (if (str/blank? string)
+                                         []
+                                         (composite/parse tir array-type string))))]
+               (if (and (> (count path) 1)
+                        (vector? (get-in row (subvec path 0 (dec (count path))))))
+                 ;; This is a collection of joined values, do update for all of them
+                 ;; PENDING: detect this in a better way
+                 (update-in row (subvec path 0 (dec (count path)))
+                            (fn [items]
+                              (mapv #(update % (last path) parse-composite) items)))
+
+                 (update-in row path
+                            parse-composite))))
            row
            path->array-type))
         results)))))

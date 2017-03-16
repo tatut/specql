@@ -4,7 +4,8 @@
             [clojure.string :as str]
             [specql.data-types :as d]
             [specql.impl.registry :as registry])
-  (:import (org.postgresql.util PGtokenizer)))
+  (:import (org.postgresql.util PGtokenizer)
+           (java.time LocalTime)))
 
 (defn- matching [string start-ch end-ch start-idx]
   ;(println "MATCHING: " string "; ch: " start-ch "from: " start-idx)
@@ -100,6 +101,8 @@
   (bigdec string))
 (defmethod parse-value "text" [_ string] string)
 (defmethod parse-value "uuid" [ _ string] (java.util.UUID/fromString string))
+(defmethod parse-value "time" [_ string]
+  (LocalTime/parse string))
 
 (defn- pg-datetime [string]
   (.parse (java.text.SimpleDateFormat. "yyyy-MM-dd HH:mm:ss")

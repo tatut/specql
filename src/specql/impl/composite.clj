@@ -103,6 +103,8 @@
 (defmethod parse-value "uuid" [ _ string] (java.util.UUID/fromString string))
 (defmethod parse-value "time" [_ string]
   (LocalTime/parse string))
+(defmethod parse-value "float8" [_ string]
+  (Double/parseDouble string))
 
 (defn- pg-datetime [string]
   (.parse (java.text.SimpleDateFormat. "yyyy-MM-dd HH:mm:ss")

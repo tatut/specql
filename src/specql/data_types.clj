@@ -6,6 +6,7 @@
 
 (s/def ::int4 (s/int-in -2147483648 2147483647))
 (s/def ::int8 (s/int-in -9223372036854775808 9223372036854775807))
+(s/def ::float8 double?)
 (s/def ::varchar string?)
 
 ;; Postgres can handle upto 4713 BC, but do we need it?

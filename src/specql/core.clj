@@ -395,21 +395,32 @@
         (fn [row]
           (reduce
            (fn [row [path array-type]]
+             ;; We need to omit empty array keys
              (let [parse-composite (fn [arr]
                                      (let [string (str arr)]
                                        (if (str/blank? string)
-                                         []
-                                         (composite/parse tir array-type string))))]
-               (if (and (> (count path) 1)
-                        (vector? (get-in row (subvec path 0 (dec (count path))))))
+                                         nil
+                                         (composite/parse tir array-type string))))
+                   update-composite (fn [m k]
+                                      (let [c (some-> (get m k) parse-composite)]
+                                        (if (nil? c)
+                                          (dissoc m k)
+                                          (assoc m k c))))]
+               (cond
+                 (and (> (count path) 1)
+                      (vector? (get-in row (subvec path 0 (dec (count path))))))
                  ;; This is a collection of joined values, do update for all of them
                  ;; PENDING: detect this in a better way
                  (update-in row (subvec path 0 (dec (count path)))
                             (fn [items]
-                              (mapv #(update % (last path) parse-composite) items)))
+                              (mapv #(update-composite % (last path)) items)))
 
-                 (update-in row path
-                            parse-composite))))
+                 (= 1 (count path))
+                 (update-composite row (first path))
+
+                 :else
+                 (update-in row (subvec path 0 (dec (count path)))
+                            #(update-composite % (last path))))))
            row
            path->array-type))
         results)))))

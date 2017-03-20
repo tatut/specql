@@ -44,23 +44,24 @@
                                          (process-columns ns)
                                          (assoc :rel rel))])))
                            tables)
-          table-info (reduce-kv
-                      (fn [m k v]
-                        (assoc m k
-                               (update v :columns
-                                       (fn [columns]
-                                         (reduce-kv
-                                          (fn [cols key val]
-                                            (assoc cols key
-                                                   (registry/array-element-type table-info val)))
-                                          {}
-                                          columns)))))
-                      {}
-                      table-info)]
+          new-table-info (reduce-kv
+                          (fn [m k v]
+                            (assoc m k
+                                   (update v :columns
+                                           (fn [columns]
+                                             (reduce-kv
+                                              (fn [cols key val]
+                                                (assoc cols key
+                                                       (registry/array-element-type table-info val)))
+                                              {}
+                                              columns)))))
+                          {}
+                          table-info)
+          table-info (merge @table-info-registry new-table-info)]
 
       `(do
          ;; Register table info so that it is available at runtime
-         (swap! table-info-registry merge ~table-info)
+         (swap! table-info-registry merge ~new-table-info)
          ~@(for [[_ table-keyword] tables
                  :let [{columns :columns
                         insert-spec-kw :insert-spec-kw :as table}

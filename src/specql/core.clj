@@ -480,25 +480,27 @@
     ;; have been processed. So that we don't unnecessarily parse
     ;; the same array many times
     (jdbc/with-db-connection [db db]
-      (process-collections
-       (map
-        ;; Process each row and remap the columns
-        ;; to the namespaced keys we want.
-        (fn [resultset-row]
-          (with-meta
-            (reduce
-             (fn [row [resultset-kw [_ output-path]]]
-               (let [v (resultset-kw resultset-row)]
-                 (if (nil? v)
-                   row
-                   (assoc-in row output-path v))))
-             {}
-             cols)
-            (when group-fn
-              {::group (group-fn resultset-row)})))
+      (with-meta
+        (process-collections
+         (map
+          ;; Process each row and remap the columns
+          ;; to the namespaced keys we want.
+          (fn [resultset-row]
+            (with-meta
+              (reduce
+               (fn [row [resultset-kw [_ output-path]]]
+                 (let [v (resultset-kw resultset-row)]
+                   (if (nil? v)
+                     row
+                     (assoc-in row output-path v))))
+               {}
+               cols)
+              (when group-fn
+                {::group (group-fn resultset-row)})))
 
-        ;; Query the generated SQL with the where map arguments
-        (jdbc/query db sql-and-parameters))))))
+          ;; Query the generated SQL with the where map arguments
+          (jdbc/query db sql-and-parameters)))
+        {::sql sql-and-parameters}))))
 
 (defn- insert-columns-and-values [table-info-registry table record]
   (let [table-columns (:columns (table-info-registry table))]

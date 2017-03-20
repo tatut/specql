@@ -82,7 +82,7 @@ parameters: column in this table, the table to join, the column in the joined ta
 Note that the joined entity keyword should be different from the id keyword. For example if you name
 a foreign reference column by the name of the entity, you must call the joined
 keyword something else (eg. "order" vs. "order-id"). It is more convenient to name foreign keys with
-an "-id" prefix in the database so that the unprefixed name can be used for the joined entity.
+an "-id" suffix in the database so that the unsuffixed name can be used for the joined entity.
 
 ## Querying data
 

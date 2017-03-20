@@ -341,7 +341,9 @@
               previous-group (::group (meta previous-row))
               [row & rows] (rest results)]
          (if-not row
-           (seq (conj acc (vectorize previous-row)))
+           (if (nil? previous-row)
+             acc
+             (seq (conj acc (vectorize previous-row))))
            (let [row-group (::group (meta row))]
              ;; Go through the group in reverse order, if a ctid is changed
              ;; add to the corresponding collection.

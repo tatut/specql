@@ -62,7 +62,7 @@
   (to-sql [_ value-accessor]
     (loop [sql []
            params []
-           [op & ops] ops]
+           [op & ops] (remove nil? ops)]
       (if-not op
         [(str "(" (str/join combine-with sql) ")") params]
         (let [[op-sql op-params] (to-sql op value-accessor)]

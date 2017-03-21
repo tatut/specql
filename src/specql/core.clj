@@ -369,7 +369,7 @@
                       rows)
 
                (recur (conj acc
-                            (vectorize previous-group))
+                            (vectorize previous-row))
                       row row-group
                       rows))))))]))
 

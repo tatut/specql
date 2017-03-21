@@ -723,7 +723,7 @@
         sql-and-params (into [sql]
                              (concat value-parameters where-parameters))]
 
-    (println "SQL: " (pr-str sql-and-params))
+    ;;(println "SQL: " (pr-str sql-and-params))
     (if (empty? primary-keys)
       ;; No returning clause, execute and check affected rows count
       (if (zero? (first (jdbc/execute! db sql-and-params)))

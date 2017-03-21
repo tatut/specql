@@ -93,6 +93,23 @@
                 #{:employee/name}
                 {:employee/id x})))))
 
+(deftest query-with-unknown-where-column
+  (is (thrown-with-msg?
+       AssertionError #"no :address/country in table :employee/employees"
+       (fetch db :employee/employees #{:employee/name}
+              ;; :address/country is a valid column, but not in this table
+              {:address/country "FI"})))
+
+  (is (thrown-with-msg?
+       AssertionError #"no :employee/name in composite type :address/address"
+       (fetch db :employee/employees #{:employee/name}
+              {:employee/address {:employee/name "Address has no name"}})))
+
+  (is (thrown-with-msg?
+       AssertionError #"no :address/country in table :employee/employees"
+       (fetch db :employee/employees #{:employee/name}
+              {:address/country (op/in #{"FI"})}))))
+
 (deftest composite-type-unpacking
   (is (= #:employee{:name "Wile E. Coyote"
                     :address #:address{:street "Desert avenue 1" :postal-code "31173" :country "US"}}

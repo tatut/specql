@@ -198,12 +198,19 @@
 
                   ;; This is a column in the current table
                   (let [{col-name :name :as column} (column-keyword table-columns)]
+                    (assert column
+                            (str "Unknown column in where clause: no "
+                                 column-keyword " in table " table))
                     (if-let [composite-columns (some->> column :type
                                                         (composite-type table-info-registry)
                                                         table-info-registry
                                                         :columns)]
                       ;; composite type: add all fields as separate clauses
                       (reduce (fn [where [kw val]]
+                                (assert (composite-columns kw)
+                                        (str "Unknown column in where XXclause: no "
+                                             kw " in composite type "
+                                             (composite-type table-info-registry (:type column))))
                                 (add-where where
                                            (str "(" alias ".\"" col-name "\").\""
                                                 (:name (composite-columns kw)) "\"")

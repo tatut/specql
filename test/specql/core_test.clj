@@ -16,9 +16,14 @@
 
 (define-tables define-db
   ["address" :address/address]
-  ["employee" :employee/employees {:employee/dep (rel/has-one :employee/department
-                                                              :department/departments
-                                                              :department/id)}]
+  ["employee" :employee/employees {;; Remap department with suffix, so that we
+                                   ;; can use the unsuffixed for the JOIN
+                                   "department" :employee/department-id
+
+                                   :employee/department
+                                   (rel/has-one :employee/department-id
+                                                :department/departments
+                                                :department/id)}]
   ["company" :company/companies]
   ["department" :department/departments {:department/employees
                                          (rel/has-many :department/id
@@ -295,20 +300,20 @@
 (deftest join-has-one
   (testing "simple join"
     (is (= #:employee {:name "Wile E. Coyote"
-                       :dep #:department {:id 1 :name "R&D"}}
+                       :department #:department {:id 1 :name "R&D"}}
            (first
             (fetch db :employee/employees
-                   #{:employee/name [:employee/dep #{:department/id :department/name}]}
+                   #{:employee/name [:employee/department #{:department/id :department/name}]}
                    {:employee/id 1
-                    :employee/dep {:department/name (op/like "R%")}})))))
+                    :employee/department {:department/name (op/like "R%")}})))))
 
   (testing "join two levels: employee->department->company"
     (is (= #:employee {:name "Foo Barsky"
-                       :dep {:department/id 1 :department/company {:company/name "Acme Inc"}}}
+                       :department {:department/id 1 :department/company {:company/name "Acme Inc"}}}
            (first
             (fetch db :employee/employees
-                   #{:employee/name [:employee/dep #{:department/id
-                                                     [:department/company #{:company/name}]}]}
+                   #{:employee/name [:employee/department
+                                     #{:department/id [:department/company #{:company/name}]}]}
                    {:employee/id 3})))))
 
   (testing "join the same table twice"
@@ -428,7 +433,7 @@
                              (fetch db :employee/employees #{:employee/id} {}))
           new-employee (upsert! db :employee/employees
                                 #:employee {:name "Rolf Teflon"
-                                            :department 1
+                                            :department-id 1
                                             :employment-started (java.util.Date.)})]
       (is (contains? new-employee :employee/id))
       (is (not (existing-ids (:employee/id new-employee)))))))

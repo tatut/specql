@@ -36,11 +36,11 @@
                  (enum-type table-info-registry element-type-name)
                  (keyword "specql.data-types" element-type-name))))))
 
-(defn process-columns [{columns :columns :as table-info} ns-name]
+(defn process-columns [{columns :columns :as table-info} ns-name column-map]
   (assoc table-info
          :columns (reduce-kv (fn [columns name column]
                                (assoc columns
-                                      (keyword ns-name name)
+                                      (or (get column-map name) (keyword ns-name name))
                                       column))
                              {} columns)))
 

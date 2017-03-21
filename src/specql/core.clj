@@ -208,7 +208,7 @@
                       ;; composite type: add all fields as separate clauses
                       (reduce (fn [where [kw val]]
                                 (assert (composite-columns kw)
-                                        (str "Unknown column in where XXclause: no "
+                                        (str "Unknown column in where clause: no "
                                              kw " in composite type "
                                              (composite-type table-info-registry (:type column))))
                                 (add-where where

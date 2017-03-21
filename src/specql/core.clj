@@ -515,34 +515,41 @@
         [names value-names value-parameters]
         (let [column (table-columns column-kw)]
           (assert column (str "Unknown column " (pr-str column-kw) " for table " (pr-str table)))
-          (if-let [composite-type-kw (composite-type table-info-registry (:type column))]
-            ;; This is a composite type, add ROW(?,...)::type value
-            (let [composite-type (table-info-registry composite-type-kw)
-                  composite-columns (:columns composite-type)]
-              (recur (conj names (:name column))
-                     (conj value-names
-                           (str "ROW("
-                                (str/join "," (repeat (count composite-columns) "?"))
-                                ")::"
-                                (:name composite-type)))
-                     ;; Get all values in order and add to parameter value
-                     (into value-parameters
-                           (map (comp (partial get value) first)
-                                (sort-by (comp :number second) composite-columns)))
-                     columns))
+          (if (= "A" (:category column))
+            ;; This is an array, serialize it
+            (recur (conj names (:name column))
+                   (conj value-names (str "?::" (subs (:type column) 1) "[]"))
+                   (conj value-parameters (composite/stringify table-info-registry column value true))
+                   columns)
 
-            (if-let [enum-type-kw (enum-type table-info-registry (:type column))]
-              ;; Enum type, add value with ::enumtype cast
-              (recur (conj names (:name column))
-                     (conj value-names (str "?::" (:type column)))
-                     (conj value-parameters value)
-                     columns)
+            (if-let [composite-type-kw (composite-type table-info-registry (:type column))]
+              ;; This is a composite type, add ROW(?,...)::type value
+              (let [composite-type (table-info-registry composite-type-kw)
+                    composite-columns (:columns composite-type)]
+                (recur (conj names (:name column))
+                       (conj value-names
+                             (str "ROW("
+                                  (str/join "," (repeat (count composite-columns) "?"))
+                                  ")::"
+                                  (:name composite-type)))
+                       ;; Get all values in order and add to parameter value
+                       (into value-parameters
+                             (map (comp (partial get value) first)
+                                  (sort-by (comp :number second) composite-columns)))
+                       columns))
 
-              ;; Normal value, add name and value
-              (recur (conj names (:name column))
-                     (conj value-names "?")
-                     (conj value-parameters value)
-                     columns))))))))
+              (if-let [enum-type-kw (enum-type table-info-registry (:type column))]
+                ;; Enum type, add value with ::enumtype cast
+                (recur (conj names (:name column))
+                       (conj value-names (str "?::" (:type column)))
+                       (conj value-parameters value)
+                       columns)
+
+                ;; Normal value, add name and value
+                (recur (conj names (:name column))
+                       (conj value-names "?")
+                       (conj value-parameters value)
+                       columns)))))))))
 
 (defn- primary-key-columns [columns]
   (into {}
@@ -716,6 +723,7 @@
         sql-and-params (into [sql]
                              (concat value-parameters where-parameters))]
 
+    (println "SQL: " (pr-str sql-and-params))
     (if (empty? primary-keys)
       ;; No returning clause, execute and check affected rows count
       (if (zero? (first (jdbc/execute! db sql-and-params)))

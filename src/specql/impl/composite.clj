@@ -106,12 +106,16 @@
 (defmethod parse-value "float8" [_ string]
   (Double/parseDouble string))
 
+(defn- pg-datetime-format []
+  (java.text.SimpleDateFormat. "yyyy-MM-dd HH:mm:ss"))
+
 (defn- pg-datetime [string]
-  (.parse (java.text.SimpleDateFormat. "yyyy-MM-dd HH:mm:ss")
+  (.parse (pg-datetime-format)
           string))
 
 (defmethod parse-value "timestamp" [_ string]
   (pg-datetime string))
+
 
 ;; FIXME: support all types here as well
 
@@ -144,3 +148,57 @@
       (if-let [et (registry/enum-type table-info-registry (:type type))]
         (parse-enum (:values (table-info-registry et)) string)
         (parse-value (:type type) string)))))
+
+;; Write back composite values to postgres string representation
+
+(defmulti stringify-value (fn [t val] t))
+
+(defmethod stringify-value "timestamp" [_ val]
+  (if (nil? val)
+    ""
+    (.format (pg-datetime-format) val)))
+
+;; int4,int8,varchar,text,uuid,time,float8,numeric all default to (str val)
+(defmethod stringify-value :default [_ val] (str val))
+
+(defn pg-quote [string]
+  (if (str/blank? string)
+    ""
+    (if (or
+         (str/starts-with? string "(")
+         (str/starts-with? string "{")
+         (str/includes? string " ")
+         (str/includes? string "\""))
+      (str "\""
+           (-> string
+               (str/replace "\\" "\\\\")
+               (str/replace "\"" "\\\""))
+           "\"")
+      string)))
+
+(declare stringify)
+
+(defn stringify-composite
+  [table-info-registry {columns :columns :as type} value]
+  ;;(println "STRINGIFY COMPOSITE " (pr-str type))
+  (str "("
+       (str/join ","
+                 (for [[kw col] (sort-by (comp :number second) columns)]
+                   (stringify table-info-registry col (get value kw))))
+       ")"))
+
+(defn stringify
+  ([table-info-registry type value]
+   (stringify table-info-registry type value false))
+  ([table-info-registry type value top-level?]
+   ;;(println "STRINGIFY: " (pr-str type) " VALUAE " (pr-str value))
+   ((if top-level? identity pg-quote)
+    (if (= "A" (:category type))
+      (str "{"
+           (str/join "," (map (partial stringify table-info-registry
+                                       (table-info-registry (:element-type type)))
+                              value))
+           "}")
+      (if (= :composite (:type type))
+        (stringify-composite table-info-registry type value)
+        (stringify-value type value))))))

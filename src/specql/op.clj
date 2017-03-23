@@ -35,7 +35,24 @@
 (defoperator >= [:val " >= " :arg])
 (defoperator between ["(" :val " BETWEEN " :arg " AND " :arg ")"])
 (defoperator like [:val " LIKE " :arg])
-(defoperator in [:val " IN (" :args  ")"])
+
+(defrecord Inop [values]
+  Op
+  (to-sql [_ v]
+    [(str v " IN ("
+          (if (empty? values)
+            "NULL"
+            (str/join "," (repeat (count values) "?")))
+          ")")
+     (vec values)]))
+
+(defn in [values]
+  (assert (clojure.core/and
+           (clojure.core/or (nil? values)
+                            (coll? values))
+           (clojure.core/not (map? values)))
+          "IN op requires a collection of values")
+  (->Inop values))
 
 (def null?
   (reify Op

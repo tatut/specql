@@ -233,7 +233,11 @@
       (is (= #{"Wile E. Coyote" "Foo Barsky"}
              (names (op/or
                      {:employee/address {:address/country (op/in #{"US"})}}
-                     {:employee/employment-ended op/not-null?})))))))
+                     {:employee/employment-ended op/not-null?})))))
+
+    (is (empty?
+         (names {:employee/address {:address/country (op/in #{})}}))
+        "Empty IN check matches nothing")))
 
 (defn typetest [in]
   (let [inserted (insert! db :typetest/table in)

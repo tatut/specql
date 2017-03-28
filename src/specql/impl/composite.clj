@@ -34,7 +34,7 @@
       (if (and (= ch \") (not= prev-ch \\))
         [(-> (subs elements (inc start-idx) idx)
              (str/replace "\\\"" "\"")
-             (str/replace "\"" "")) (inc idx)]
+             (str/replace "\"\"" "\\\"")) (inc idx)]
         (recur ch (inc idx))))))
 
 (defn until [elements start-idx end-ch]
@@ -45,7 +45,7 @@
       (recur (inc idx)))))
 
 (defn- split-elements [elements idx]
-  ;(println "SPLIT ELEMENTS: " elements)
+  ;;(println "SPLIT ELEMENTS: " elements)
   (let [end (.length elements)]
     (loop [acc []
            idx 0]
@@ -81,6 +81,7 @@
   {:string string :as type})
 
 (defn- parse-composite [table-info-registry {cols :columns :as type} string]
+  ;;(println "PARSE-COMPOSITE " string)
   (let [fields (split-elements (first (matching string \( \) 0)) 0)]
     (into {}
           (map (fn [[key {n :number :as col}]]
@@ -125,9 +126,10 @@
   element)
 
 (defn parse [table-info-registry type string]
-  ;(println "PARSE: " (pr-str type))
+  ;;(println "PARSE: " (pr-str type) ": " string)
   (if (= "A" (:category type))
     (let [elements (split-elements (first (matching string \{ \} 0)) 0)
+          ;;_ (println "ELEMENTS: " elements)
           element-parser
           (if-let [composite-or-enum-type (table-info-registry (:element-type type))]
             (case (:type composite-or-enum-type)

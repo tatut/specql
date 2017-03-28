@@ -84,11 +84,11 @@
   ;;(println "PARSE-COMPOSITE " string)
   (let [fields (split-elements (first (matching string \( \) 0)) 0)]
     (into {}
-          (map (fn [[key {n :number :as col}]]
-                 [key
-                  (parse table-info-registry col
-                         (get fields (dec n)))] ;; FIXME: parse string to type
-                 ))
+          (keep (fn [[key {n :number :as col}]]
+                  (let [val (parse table-info-registry col
+                                   (get fields (dec n)))]
+                    (when val
+                      [key val]))))
           cols)))
 
 (defmulti parse-value (fn [t str] t))

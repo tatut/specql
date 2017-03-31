@@ -337,7 +337,10 @@
                     ;; Make sure collections are vectors
                     (reduce (fn [row [_ [_ path]]]
                               (update-in row path
-                                         #(if (vector? %) % [%])))
+                                         #(cond
+                                            (nil? %) []
+                                            (vector? %) %
+                                            :else [%])))
                             row
                             has-many-join-cols))]
     [group-fn

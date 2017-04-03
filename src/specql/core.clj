@@ -100,8 +100,14 @@
                                             (enum-values db type)))
                                       (keyword "specql.data-types" type)))]
                           :when type-spec]
-                      `(s/def ~kw ~(if array?
+                      `(s/def ~kw ~(cond
+                                     array?
                                      `(s/coll-of ~type-spec)
+
+                                     (not (:not-null? column))
+                                     `(s/nilable ~type-spec)
+
+                                     :default
                                      type-spec))))))))))
 
 (defn- assert-spec

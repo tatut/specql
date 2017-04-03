@@ -201,10 +201,12 @@
                     (assert column
                             (str "Unknown column in where clause: no "
                                  column-keyword " in table " table))
-                    (if-let [composite-columns (some->> column :type
-                                                        (composite-type table-info-registry)
-                                                        table-info-registry
-                                                        :columns)]
+                    (if-let [composite-columns (and
+                                                (map? value)
+                                                (some->> column :type
+                                                         (composite-type table-info-registry)
+                                                         table-info-registry
+                                                         :columns))]
                       ;; composite type: add all fields as separate clauses
                       (reduce (fn [where [kw val]]
                                 (assert (composite-columns kw)

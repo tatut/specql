@@ -516,3 +516,19 @@
            (fetch db :mailinglist/mailinglist
                   #{:mailinglist/name :mailinglist/recipients}
                   {}))))))
+
+(deftest update-column-to-null
+  (let [company #(first (fetch db :company/companies
+                               #{:company/id :company/name :company/visiting-address}
+                               {:company/id 1}))
+        nil-count #(count (fetch db :company/companies #{:company/id}
+                                 {:company/visiting-address op/null?}))]
+    (is (zero? (nil-count)))
+    (let [before (company)]
+      (upsert! db :company/companies
+               {:company/id 1
+                :company/name (:company/name before)
+                :company/visiting-address nil})
+      (let [after (company)]
+        (is (= after (dissoc before :company/visiting-address)))
+        (is (= 1 (nil-count)))))))

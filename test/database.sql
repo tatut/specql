@@ -122,3 +122,17 @@ VALUES ('Fake News Quarterly',
          ROW('Erno Penttikoski', ROW('Tiekuja 3','90666','FI')::address)::recipient,
 	 ROW('Henna Lindberg', ROW('Kujakuja 5','4242','FI')::address)::recipient
         ]::recipient[]);
+
+
+
+-- Test name/type clashes
+
+-- Specing these tables in the same namespace should give error about
+-- two incompatible specs for the start keyword.
+CREATE TABLE typeclash1 ( start TIMESTAMP );
+CREATE TABLE typeclash2 ( start TIME );
+
+-- Specing these tables in the same namespace should give error about
+-- nameclash1 keyword already referring to a table
+CREATE TABLE nameclash1 ( foo integer );
+CREATE TABLE nameclash2 ( nameclash1 varchar );

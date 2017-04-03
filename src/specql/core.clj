@@ -20,6 +20,38 @@
     (java.sql.Timestamp. (.getTime dt))))
 
 
+(defn- validate-column-types [tables]
+  (let [kw-types (->> tables
+                      vals
+                      (mapcat :columns))]
+    (loop [kw-type {}
+           [[kw {type :type}] & kw-types] kw-types]
+      (when kw
+        (let [previous-type (get kw-type kw)]
+          (when previous-type
+            (assert (= previous-type type)
+                    (str "Type mismatch. Keyword " kw
+                         " is already defined as \"" previous-type
+                         "\" and now trying to define it as \"" type
+                         "\". Check that two tables don't have the same column name"
+                         " with different column types in the same namespace.")))
+          (recur (assoc kw-type kw type)
+                 kw-types))))))
+
+(defn- validate-table-names
+  "Validate that there are no columns with the same kw as a table."
+  [tables]
+  (let [all-column-keys (->> tables vals (mapcat (comp keys :columns)) (into #{}))]
+    (doseq [[k _] tables]
+      (assert (not (all-column-keys k))
+              (str "Table/column name clash. Table " k " is also defined as a column.")))))
+
+(defn- validate-table-info
+  "Check that there are no name/type clashes in table info."
+  [tables]
+  (validate-column-types tables)
+  (validate-table-names tables))
+
 (defmacro define-tables
   "Define specs and register query info for the given tables and user defined types.
   Tables are specified as [\"table-name\" :some.ns/table-name]. The table keys spec
@@ -59,6 +91,7 @@
                           table-info)
           table-info (merge @table-info-registry new-table-info)]
 
+      (validate-table-info table-info)
       `(do
          ;; Register table info so that it is available at runtime
          (swap! table-info-registry merge ~new-table-info)

@@ -532,3 +532,23 @@
       (let [after (company)]
         (is (= after (dissoc before :company/visiting-address)))
         (is (= 1 (nil-count)))))))
+
+(def test-ns *ns*)
+
+(deftest typeclash
+  (is (thrown-with-msg?
+       AssertionError #":typeclash/start is already defined as \"timestamp\" and now trying to define it as \"time\""
+
+       (binding [*ns* test-ns]
+         (eval '(define-tables define-db
+                  ["typeclash1" :typeclash/one]
+                  ["typeclash2" :typeclash/two]))))))
+
+(deftest nameclash
+  (is (thrown-with-msg?
+       AssertionError #"Table :nameclash/nameclash1 is also defined as a column"
+
+       (binding [*ns* test-ns]
+         (eval '(define-tables define-db
+                  ["nameclash1" :nameclash/nameclash1]
+                  ["nameclash2" :nameclash/nameclash2]))))))

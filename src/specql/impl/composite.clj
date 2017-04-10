@@ -69,6 +69,11 @@
               (recur (conj acc (str "{" elt "}"))
                      (inc new-idx)))
 
+            ;; At "," character, this is an empty value
+            (= \, ch)
+            (recur (conj acc nil)
+                   (inc idx))
+
             ;; Read non-quoted value
             :default
             (let [[elt new-idx] (until elements idx #(= % \,))]
@@ -81,12 +86,15 @@
   {:string string :as type})
 
 (defn- parse-composite [table-info-registry {cols :columns :as type} string]
-  ;;(println "PARSE-COMPOSITE " string)
-  (let [fields (split-elements (first (matching string \( \) 0)) 0)]
+  ;(println "PARSE-COMPOSITE " string)
+  (let [field-values-str (first (matching string \( \) 0))
+        ;_ (println "FIELD VALUES: " (pr-str field-values-str))
+        fields (split-elements field-values-str 0)]
+    ;(println "FIELDS: " (pr-str fields))
     (into {}
           (keep (fn [[key {n :number :as col}]]
-                  (let [val (parse table-info-registry col
-                                   (get fields (dec n)))]
+                  (let [val (some->> (get fields (dec n))
+                                     (parse table-info-registry col))]
                     (when val
                       [key val]))))
           cols)))

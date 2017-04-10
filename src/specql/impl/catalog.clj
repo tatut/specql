@@ -7,6 +7,7 @@
 (def ^:private columns-q (str "SELECT attr.attname AS name, attr.attnum AS number,"
                     "attr.attnotnull AS \"not-null?\","
                     "attr.atthasdef AS \"has-default?\","
+                    "attr.atttypmod AS \"type-specific-data\","
                     "t.typname AS type, "
                     "t.typcategory AS category, "
                     "EXISTS(SELECT indkey FROM pg_catalog.pg_index i "

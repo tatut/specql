@@ -131,6 +131,14 @@
                                             (enum-type table-info type)
                                             ;; just the values as spec
                                             (enum-values db type)))
+
+                                      ;; varchar/text field with max length set
+                                      (and (#{"text" "varchar"} type)
+                                           (pos? (:type-specific-data column))
+                                           `(s/and ~(keyword "specql.data-types" type)
+                                                   (fn [s#]
+                                                     (<= (count s#) ~(- (:type-specific-data column) 4)))))
+
                                       (keyword "specql.data-types" type)))]
                           :when type-spec]
                       `(s/def ~kw ~(cond

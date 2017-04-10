@@ -159,6 +159,15 @@
                          {:employee/id 4})))))
 
   (testing "insert record with composite value"
+    (is (thrown-with-msg?
+         AssertionError #"predicate: .*\(<= \(count"
+         (insert! db :employee/employees
+                  {:employee/name "too long addr"
+                   :employee/employment-started (java.util.Date.)
+                   :employee/address #:address{:street "this streetname is too long, max 20 chars"
+                                               :postal-code "12345"
+                                               :country "US"}})))
+
     (let [addr #:address {:street "somestreet 123"
                           :postal-code "90123"
                           :country "US"}]

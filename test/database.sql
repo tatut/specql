@@ -1,5 +1,5 @@
 CREATE TYPE address AS (
-  street varchar,
+  street varchar(20),
   "postal-code" varchar,
   country varchar
 );

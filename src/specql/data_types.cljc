@@ -22,6 +22,7 @@
 (s/def ::numeric #?(:clj bigdec?
                     :cljs number?))
 (s/def ::text string?)
+(s/def ::bpchar string?)
 (s/def ::bool boolean?)
 
 (s/def ::uuid uuid?)

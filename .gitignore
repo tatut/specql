@@ -1,2 +1,4 @@
 target
 /.nrepl-port
+.idea
+specql.iml

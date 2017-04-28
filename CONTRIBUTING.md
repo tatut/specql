@@ -1,6 +1,6 @@
 # Issues
 
-Please file issues for feature suggestions or bug fixes.
+Please file issues for feature suggestions or bugs.
 
 # Experimental
 

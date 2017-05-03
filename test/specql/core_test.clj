@@ -561,3 +561,12 @@
          (eval '(define-tables define-db
                   ["nameclash1" :nameclash/nameclash1]
                   ["nameclash2" :nameclash/nameclash2]))))))
+
+(deftest errors
+  (testing "Invalid columns set"
+    (is (thrown-with-msg?
+         AssertionError #"Columns must be a non-empty set"
+         (fetch db :employee/employees #{} {})))
+    (is (thrown-with-msg?
+         AssertionError #"Columns must be a non-empty set"
+         (fetch db :employee/employees [:this :is :not :a :set] {})))))

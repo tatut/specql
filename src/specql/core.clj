@@ -30,7 +30,7 @@
 ;; Re-export implementation functions here
 
 (def
-   ^{:doc "Fetch rows from the given tables.
+  ^{:doc "Fetch rows from the given tables.
   Db is a database connection (anything clojure.java.jdbc accepts).
   Table is a namespaced keyword indicating a previously defined database table.
   Columns is a set of namespaced keywords indicating the columns to fetch. A column can also be a
@@ -46,7 +46,7 @@
   ;; => ({:employee/id 1 :employee/name \"Foo\"}
   ;;     {:employee/id 2 :employee/name \"Bar\"})"
      :arglists '([db table columns where])}
-   fetch fetch/fetch)
+  fetch fetch/fetch)
 
 ;; FIXME: add docstrings
 

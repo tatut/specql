@@ -99,12 +99,6 @@
             (str " ON " join-cond))))))
 
 
-
-
-
-
-
-
 (defn- collection-processing-fn
   "Takes columns describing has-many joins and returns a grouping function
   that is used to determine row ::group metadata and a function that processes
@@ -225,6 +219,9 @@
 
 (defn fetch [db table columns where]
   (assert-table table)
+  (assert (and (set? columns)
+               (seq columns))
+          "Columns must be a non-empty set")
   (let [table-info-registry @registry/table-info-registry
         {table-name :name table-columns :columns :as table-info}
         (table-info-registry table)

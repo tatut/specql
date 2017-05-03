@@ -38,6 +38,14 @@
   (validate-column-types tables)
   (validate-table-names tables))
 
+(defn- cljs?
+  "Check if we are compiling cljs"
+  []
+  (some-> 'cljs.analyzer
+          find-ns
+          (ns-resolve '*cljs-file*)
+          boolean?))
+
 (defmacro define-tables
   "See specql.core/define-tables for documentation."
   [db & tables]
@@ -65,12 +73,17 @@
                                               columns)))))
                           {}
                           table-info)
-          table-info (merge @table-info-registry new-table-info)]
+          table-info (merge @table-info-registry new-table-info)
+          cljs? (cljs?)]
+
 
       (validate-table-info table-info)
       `(do
          ;; Register table info so that it is available at runtime
-         (swap! table-info-registry merge ~new-table-info)
+         ;; Only for Clojure
+         ~(when-not cljs?
+            `(swap! table-info-registry merge ~new-table-info))
+
          ~@(for [[_ table-keyword] tables
                  :let [{columns :columns
                         insert-spec-kw :insert-spec-kw :as table}

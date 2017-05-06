@@ -2,6 +2,7 @@
   (:require [specql.core :refer [define-tables fetch insert! delete! update! upsert!]]
             [specql.op :as op]
             [specql.rel :as rel]
+            [specql.transform :as xf]
             [clojure.test :as t :refer [deftest is testing]]
             [specql.embedded-postgres :refer [with-db datasource db]]
             [clojure.java.jdbc :as jdbc]
@@ -570,3 +571,55 @@
     (is (thrown-with-msg?
          AssertionError #"Columns must be a non-empty set"
          (fetch db :employee/employees [:this :is :not :a :set] {})))))
+
+
+;; Test custom field transformation
+
+(define-tables define-db
+
+  ;; The "status" enum is defined as its own type, the transformation will be
+  ;; applied to any field whose type is the enum
+  ["status" :issue.status/status (xf/transform (xf/to-keyword "issue.status"))]
+
+  ["issue" :issue/issue
+   ;; the "issuetype" enum is not defined as a type, but we can still transform
+   ;; it when defining tables that use it
+   {:issue/type (xf/transform (xf/to-keyword))}])
+
+(deftest transformed-column-specs
+  (testing "Keyword transformed spec validates properly"
+    ;; All the valid namespaced keys are in fact valid
+    (is (every? #(s/valid? :issue/status %) #{:issue.status/open
+                                              :issue.status/in-progress
+                                              :issue.status/resolved}))
+
+    ;; An unnamespaced keyword is not valid
+    (is (not (s/valid? :issue/status :open)))
+
+    ;; Neither is a string in the enum
+    (is (not (s/valid? :issue/status "in-progress")))))
+
+(deftest insert-and-query-transformed
+  (testing "Inserting with transformed values works"
+    (insert! db :issue/issue {:issue/title "I have some issues"
+                              :issue/status :issue.status/open}))
+
+  (testing "Query returns the transformed value"
+    (is (= (list {:issue/title "I have some issues"
+                  :issue/status :issue.status/open})
+           (fetch db :issue/issue #{:issue/title :issue/status}))))
+
+  (testing "Updating a new value"
+    (is (= 1 (update! db :issue/issue {:issue/status :issue.status/resolved}
+                      {:issue/id 1}))))
+
+  (testing "Where value with transformed works"
+    (is (= (list {:issue/title "I have some issues"
+                  :issue/status :issue.status/resolved})
+           (fetch db :issue/issue #{:issue/title :issue/status}
+                  {:issue/status :issue.status/resolved}))))
+
+  (testing "Where operator works with transformed"
+    (is (= (list {:issue/title "I have some issues"})
+           (fetch db :issue/issue #{:issue/title}
+                  {:issue/status (op/in #{:issue.status/resolved})})))))

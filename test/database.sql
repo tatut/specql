@@ -136,3 +136,17 @@ CREATE TABLE typeclash2 ( start TIME );
 -- nameclash1 keyword already referring to a table
 CREATE TABLE nameclash1 ( foo integer );
 CREATE TABLE nameclash2 ( nameclash1 varchar );
+
+
+-- Test field transformation
+
+CREATE TYPE status AS ENUM ('open','in-progress','resolved');
+
+CREATE TYPE issuetype AS ENUM ('bug','feature');
+CREATE TABLE issue (
+  id SERIAL PRIMARY KEY,
+  title TEXT NOT NULL,
+  description TEXT,
+  status status,
+  type issuetype
+);

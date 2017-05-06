@@ -6,7 +6,8 @@
             [specql.impl.where :as where]
             [specql.rel :as rel]
             [clojure.string :as str]
-            [clojure.java.jdbc :as jdbc]))
+            [clojure.java.jdbc :as jdbc]
+            [specql.transform :as xf]))
 
 (defn- fetch-tables
   "Determine all tables to query from. JOINs tables indicated by columns.
@@ -283,11 +284,15 @@
           (fn [resultset-row]
             (with-meta
               (reduce
-               (fn [row [resultset-kw [_ output-path]]]
+               (fn [row [resultset-kw [_ output-path col]]]
                  (let [v (resultset-kw resultset-row)]
                    (if (nil? v)
                      row
-                     (assoc-in row output-path v))))
+                     (let [xf (::xf/transform col)]
+                       (assoc-in row output-path
+                                 (if xf
+                                   (xf/from-sql xf v)
+                                   v))))))
                {}
                cols)
               (when group-fn

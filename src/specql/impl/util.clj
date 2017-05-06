@@ -1,5 +1,5 @@
 (ns specql.impl.util
-  (:require [clojure.spec :as s]
+  (:require [clojure.spec.alpha :as s]
             [specql.impl.registry :as registry]
             [clojure.string :as str]))
 

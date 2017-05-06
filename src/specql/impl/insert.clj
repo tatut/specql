@@ -1,6 +1,6 @@
 (ns specql.impl.insert
   "Implementation of insert! and upsert!"
-  (:require [clojure.spec :as s]
+  (:require [clojure.spec.alpha :as s]
             [specql.impl.util :refer :all]
             [specql.impl.composite :as composite]
             [specql.impl.registry :as registry]

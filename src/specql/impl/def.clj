@@ -1,6 +1,6 @@
 (ns specql.impl.def
   "Containes the define-tables macro and support code."
-  (:require [clojure.spec :as s]
+  (:require [clojure.spec.alpha :as s]
             [specql.data-types :as d]
             [specql.impl.catalog :refer :all]
             [specql.impl.registry :as registry :refer :all]

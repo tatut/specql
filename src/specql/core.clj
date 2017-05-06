@@ -1,5 +1,5 @@
 (ns specql.core
-  (:require [clojure.spec :as s]
+  (:require [clojure.spec.alpha :as s]
             [specql.data-types :as d]
             [specql.impl.def :as def]
             [specql.impl.jdbc]

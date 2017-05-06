@@ -1,6 +1,6 @@
 (ns specql.rel
   "Describe relationships between tables for JOIN support"
-  (:require [clojure.spec :as s]))
+  (:require [clojure.spec.alpha :as s]))
 
 (s/def ::rel (s/keys :req [::rel-type]
                      :opt [::this-table-column

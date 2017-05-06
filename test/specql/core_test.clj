@@ -6,8 +6,8 @@
             [specql.embedded-postgres :refer [with-db datasource db]]
             [clojure.java.jdbc :as jdbc]
             [clojure.string :as str]
-            [clojure.spec :as s]
-            [clojure.spec.test :as stest]))
+            [clojure.spec.alpha :as s]
+            [clojure.spec.test.alpha :as stest]))
 
 
 (t/use-fixtures :each with-db)

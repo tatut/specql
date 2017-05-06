@@ -60,3 +60,8 @@
                   (keyword (alias-fn name))
                   [(str table-alias ".\"" name "\"") result-path col]))))
      {} column->path)))
+
+(defn map-vals [m f]
+  (into {}
+        (map (juxt first (comp f second)))
+        m))

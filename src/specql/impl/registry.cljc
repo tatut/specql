@@ -36,13 +36,30 @@
                  (enum-type table-info-registry element-type-name)
                  (keyword "specql.data-types" element-type-name))))))
 
-(defn process-columns [{columns :columns :as table-info} ns-name column-map]
-  (assoc table-info
-         :columns (reduce-kv (fn [columns name column]
-                               (assoc columns
-                                      (or (get column-map name) (keyword ns-name name))
-                                      column))
-                             {} columns)))
+(defn- remap-columns [columns ns-name column-map]
+  (reduce-kv
+   (fn [columns name column]
+     (assoc columns
+            (or (get column-map name) (keyword ns-name name))
+            column))
+   {} columns))
+
+(defn- transformed
+  "Add :specql.transform/transform to the column definition"
+  [columns column-options-map]
+  (reduce-kv
+   (fn [columns name column]
+     (assoc columns name
+            (merge column
+                   (select-keys (get column-options-map name)
+                                #{:specql.transform/transform}))))
+   {} columns))
+
+(defn process-columns [{columns :columns :as table-info} ns-name column-options-map]
+  (let [column-options-map (eval column-options-map)]
+    (-> table-info
+        (update :columns remap-columns ns-name column-options-map)
+        (update :columns transformed column-options-map))))
 
 (defn required-insert? [{:keys [not-null? has-default?]}]
   (and not-null?

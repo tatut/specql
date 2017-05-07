@@ -29,8 +29,8 @@
 
 ;; Re-export implementation functions here
 
-(def
-  ^{:doc "Fetch rows from the given tables.
+(defn fetch
+  "Fetch rows from the given tables.
   Db is a database connection (anything clojure.java.jdbc accepts).
   Table is a namespaced keyword indicating a previously defined database table.
   Columns is a set of namespaced keywords indicating the columns to fetch. A column can also be a
@@ -45,12 +45,29 @@
          {:employee/id (op/<= 2)})
   ;; => ({:employee/id 1 :employee/name \"Foo\"}
   ;;     {:employee/id 2 :employee/name \"Bar\"})"
-     :arglists '([db table columns where])}
-  fetch fetch/fetch)
+  [db table columns where]
+  (fetch/fetch db table columns where))
 
-;; FIXME: add docstrings
+;; FIXME: improve docstrings
 
-(def insert! insert/insert!)
-(def upsert! insert/upsert!)
-(def delete! delete/delete!)
-(def update! update/update!)
+(defn insert!
+  "Insert a record to the given table. Returns the inserted record with the
+  (possibly generated) primary keys added."
+  [db table-kw record]
+  (insert/insert! db table-kw record))
+
+(defn upsert!
+  "Atomically UPDATE or INSERT a record"
+  [db table & keyset-record-where]
+  (apply insert/upsert! db table keyset-record-where))
+
+(defn delete!
+  "Delete rows from table that match the given search criteria.
+  Returns the number of rows deleted."
+  [db table where]
+  (delete/delete! db table where))
+
+(defn update!
+  "Update matching records. Returns number of records updated."
+  [db table record where]
+  (update/update! db table record where))

@@ -71,7 +71,7 @@
 (defn- column-specs [db table-info columns]
   (for [[kw {type :type
              category :category
-             transform :xf/transform
+             transform ::xf/transform
              :as column}] columns
         :let [array? (= "A" category)
               type (if array?
@@ -79,6 +79,7 @@
                      type)
               type-spec (type-spec db table-info column)]
         :when type-spec]
+
     (let [type-spec (if transform
                       (xf/transform-spec transform type-spec)
                       type-spec)]
@@ -104,22 +105,23 @@
   transformation to all columns whose type is that enum."
   [table-info new-table-info]
   (map-vals
-   new-table-info
    (fn [table]
      (update
-      table :columns map-vals
-      (fn [{enum? :enum? type :type transform ::xf/transform :as column}]
-        (if (or (not enum?) transform)
-          ;; Not an enum or already has a transform, return as is
-          column
-          ;; This is an enum, try to find transformation from enum
-          ;; type definition (if any)
-          (if-let [transform (some->> type
-                                      (registry/enum-type table-info)
-                                      table-info
-                                      :rel ::xf/transform)]
-            (assoc column ::xf/transform transform)
-            column)))))))
+      table :columns
+      #(map-vals
+        (fn [{enum? :enum? type :type transform ::xf/transform :as column}]
+          (if (or (not enum?) transform)
+            ;; Not an enum or already has a transform, return as is
+            column
+            ;; This is an enum, try to find transformation from enum
+            ;; type definition (if any)
+            (if-let [transform (some->> type
+                                        (registry/enum-type table-info)
+                                        table-info
+                                        :rel ::xf/transform)]
+              (assoc column ::xf/transform transform)
+              column))) %)))
+   new-table-info))
 
 (defmacro define-tables
   "See specql.core/define-tables for documentation."

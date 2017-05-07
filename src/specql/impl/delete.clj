@@ -6,10 +6,7 @@
             [clojure.string :as str]
             [clojure.java.jdbc :as jdbc]))
 
-(defn delete!
-  "Delete rows from table that match the given search criteria.
-  Returns the number of rows deleted."
-  [db table where]
+(defn delete! [db table where]
   (assert-table table)
   (let [table-info-registry @registry/table-info-registry
         {table-name :name} (table-info-registry table)

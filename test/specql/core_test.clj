@@ -394,7 +394,7 @@
 
   (testing "update unknown columns"
     (is (thrown-with-msg?
-         AssertionError #"Unknown columns"
+         AssertionError #"Unknown column :employee/no-such-field"
          (update! db :employee/employees
                   {:employee/name "foo"
                    :employee/no-such-field "bar"}
@@ -607,7 +607,7 @@
   (testing "Query returns the transformed value"
     (is (= (list {:issue/title "I have some issues"
                   :issue/status :issue.status/open})
-           (fetch db :issue/issue #{:issue/title :issue/status}))))
+           (fetch db :issue/issue #{:issue/title :issue/status} {}))))
 
   (testing "Updating a new value"
     (is (= 1 (update! db :issue/issue {:issue/status :issue.status/resolved}
@@ -622,4 +622,29 @@
   (testing "Where operator works with transformed"
     (is (= (list {:issue/title "I have some issues"})
            (fetch db :issue/issue #{:issue/title}
-                  {:issue/status (op/in #{:issue.status/resolved})})))))
+                  {:issue/status (op/not= :issue.status/open)})))
+    (is (= (list {:issue/title "I have some issues"})
+           (fetch db :issue/issue #{:issue/title}
+                  {:issue/status (op/in #{:issue.status/resolved})}))))
+
+  (testing "Upsert transformed"
+    (let [issue (upsert! db :issue/issue
+                         #:issue {:title "foo" :status :issue.status/open
+                                  :type :feature})]
+      (is (= #:issue {:id 2 :title "foo" :status :issue.status/open
+                      :type :feature}
+             issue))
+
+      (is (= (list issue)
+             (fetch db :issue/issue #{:issue/id :issue/title :issue/status :issue/type}
+                    {:issue/type :feature})))
+
+      (let [issue-resolved (assoc issue :issue/status :issue.status/resolved)]
+        (is (= issue-resolved (upsert! db :issue/issue issue-resolved)))
+
+        (is (empty? (fetch db :issue/issue #{:issue/id} {:issue/status :issue.status/open})))
+
+        (is (= (list issue-resolved)
+               (fetch db :issue/issue #{:issue/id :issue/title :issue/status :issue/type}
+                      {:issue/status :issue.status/resolved
+                       :issue/title "foo"})))))))

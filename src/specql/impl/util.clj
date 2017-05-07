@@ -65,3 +65,50 @@
   (into {}
         (map (juxt first (comp f second)))
         m))
+(defn columns-and-values-to-set
+  "Return columns and values for set (update or insert)"
+  [table-info-registry table record]
+  (let [table-columns (:columns (table-info-registry table))]
+    (loop [names []
+           value-names []
+           value-parameters []
+           [[column-kw value] & columns] (seq record)]
+      (if-not column-kw
+        [names value-names value-parameters]
+        (let [column (table-columns column-kw)]
+          (assert column (str "Unknown column " (pr-str column-kw) " for table " (pr-str table)))
+          (if (= "A" (:category column))
+            ;; This is an array, serialize it
+            (recur (conj names (:name column))
+                   (conj value-names (str "?::" (subs (:type column) 1) "[]"))
+                   (conj value-parameters (composite/stringify table-info-registry column value true))
+                   columns)
+
+            (if-let [composite-type-kw (registry/composite-type table-info-registry (:type column))]
+              ;; This is a composite type, add ROW(?,...)::type value
+              (let [composite-type (table-info-registry composite-type-kw)
+                    composite-columns (:columns composite-type)]
+                (recur (conj names (:name column))
+                       (conj value-names
+                             (str "ROW("
+                                  (str/join "," (repeat (count composite-columns) "?"))
+                                  ")::"
+                                  (:name composite-type)))
+                       ;; Get all values in order and add to parameter value
+                       (into value-parameters
+                             (map (comp (partial get value) first)
+                                  (sort-by (comp :number second) composite-columns)))
+                       columns))
+
+              (if (:enum? column)
+                ;; Enum type, add value with ::enumtype cast
+                (recur (conj names (:name column))
+                       (conj value-names (str "?::" (:type column)))
+                       (conj value-parameters value)
+                       columns)
+
+                ;; Normal value, add name and value
+                (recur (conj names (:name column))
+                       (conj value-names "?")
+                       (conj value-parameters value)
+                       columns)))))))))

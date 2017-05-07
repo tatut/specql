@@ -9,21 +9,14 @@
 (defn update! [db table record where]
   (assert-table table)
   (let [table-info-registry @registry/table-info-registry
-        {table-name :name columns :columns} (table-info-registry table)
+        {table-name :name columns :columns :as tbl} (table-info-registry table)
+        record (transform-to-sql table-info-registry tbl record)
         alias-fn (gen-alias)
         alias (alias-fn table-name)
 
-        cols (map (juxt (comp :name columns first)
-                        second)
-                  record)
+        [column-names value-names value-parameters :as cols]
+        (columns-and-values-to-set table-info-registry table record)
 
-        _ (assert (every? (comp some? first) cols)
-                  (str "Unknown columns in update: "
-                       (into #{}
-                             (comp
-                              (map first)
-                              (remove #(contains? columns %)))
-                             record)))
         [where-clause where-parameters]
         (where/sql-where table-info-registry
                          #(when (= % [])
@@ -33,9 +26,10 @@
 
         sql (str "UPDATE " (q table-name) " AS " alias
                  " SET " (str/join ","
-                                   (map #(str (q (first %)) "=?")
-                                        cols))
+                                   (map (fn [column-name value-name]
+                                          (str (q column-name) "=" value-name))
+                                        column-names value-names))
                  " WHERE " where-clause)
-        sql-and-params (into [sql] (concat (map second cols)
+        sql-and-params (into [sql] (concat value-parameters
                                            where-parameters))]
     (first (jdbc/execute! db sql-and-params))))

@@ -51,6 +51,7 @@ See the [docs](https://tatut.github.io/specql) for more examples.
 
 * Support custom column transformations (eg. db enums to keywords)
 * Better enum support (operators add type casts to parameters)
+* Operators now take a third argument: column info
 
 # work in progress
 

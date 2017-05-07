@@ -1,7 +1,9 @@
 (ns specql.impl.util
   (:require [clojure.spec.alpha :as s]
             [specql.impl.registry :as registry]
-            [clojure.string :as str]))
+            [clojure.string :as str]
+            [specql.transform :as xf]
+            [specql.impl.composite :as composite]))
 
 (defn assert-spec
   "Unconditionally assert that value is valid for spec. Returns value."
@@ -61,10 +63,34 @@
                   [(str table-alias ".\"" name "\"") result-path col]))))
      {} column->path)))
 
-(defn map-vals [m f]
+(defn map-vals [f m]
   (into {}
         (map (juxt first (comp f second)))
         m))
+
+(defn transform-value-to-sql [{transform ::xf/transform :as column} value]
+  (if transform
+    (xf/to-sql transform value)
+    value))
+
+(defn transform-to-sql
+  "Transform column values to SQL "
+  [table-info-registry {:keys [columns] :as table} record]
+  (if-not columns
+    record
+    (let [column-xf #(some-> % columns ::xf/transform)]
+      (reduce
+       (fn [record [key val]]
+         (if-let [xf (column-xf key)]
+           (assoc record key (xf/to-sql xf val))
+           (if (map? val)
+             (assoc record key
+                    (transform-to-sql table-info-registry
+                                      (table-info-registry (:type (columns key)))
+                                      val))
+             record)))
+       record record))))
+
 (defn columns-and-values-to-set
   "Return columns and values for set (update or insert)"
   [table-info-registry table record]

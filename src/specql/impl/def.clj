@@ -132,13 +132,14 @@
   (let [db (eval db)]
     (let [table-info (into {}
                            (map (fn [[table-name table-keyword opts]]
-                                  (let [ns (name (namespace table-keyword))]
+                                  (let [ns (name (namespace table-keyword))
+                                        opts (eval opts)]
                                     [table-keyword
                                      (-> (table-info db table-name)
                                          (assoc :insert-spec-kw
                                                 (keyword ns (str (name table-keyword) "-insert")))
                                          (process-columns ns opts)
-                                         (assoc :rel (eval opts)))])))
+                                         (assoc :rel opts))])))
                            tables)
           new-table-info (reduce-kv
                           (fn [m k v]

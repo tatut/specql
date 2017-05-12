@@ -56,10 +56,9 @@
    {} columns))
 
 (defn process-columns [{columns :columns :as table-info} ns-name column-options-map]
-  (let [column-options-map (eval column-options-map)]
-    (-> table-info
-        (update :columns remap-columns ns-name column-options-map)
-        (update :columns transformed column-options-map))))
+  (-> table-info
+      (update :columns remap-columns ns-name column-options-map)
+      (update :columns transformed column-options-map)))
 
 (defn required-insert? [{:keys [not-null? has-default?]}]
   (and not-null?

@@ -115,6 +115,12 @@
 (defmethod parse-value "float8" [_ string]
   (Double/parseDouble string))
 
+(defmethod parse-value "point" [_ string]
+  (let [vals (-> string
+                 (subs 1 (dec (count string)))
+                 (str/split #","))]
+    (mapv #(Double/parseDouble %) vals)))
+
 (defn- pg-datetime-format []
   (java.text.SimpleDateFormat. "yyyy-MM-dd HH:mm:ss"))
 
@@ -167,6 +173,12 @@
   (if (nil? val)
     ""
     (.format (pg-datetime-format) val)))
+
+(defmethod stringify-value "point" [_ vals]
+  ;; [x,y] vector to "(x,y)" string
+  (str "("
+       (str/join "," (map str vals))
+       ")"))
 
 ;; int4,int8,varchar,text,uuid,time,float8,numeric all default to (str val)
 (defmethod stringify-value :default [_ val] (str val))

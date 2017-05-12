@@ -52,7 +52,7 @@ See the [docs](https://tatut.github.io/specql) for more examples.
 * Support custom column transformations (eg. db enums to keywords)
 * Better enum support (operators add type casts to parameters)
 * Operators now take a third argument: column info
-
+* Support "point" type as vector [x y] in composites
 # work in progress
 
 This is very much still work in progress.

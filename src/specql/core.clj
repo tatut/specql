@@ -9,7 +9,8 @@
             [specql.impl.fetch :as fetch]
             [specql.impl.insert :as insert]
             [specql.impl.delete :as delete]
-            [specql.impl.update :as update]))
+            [specql.impl.update :as update]
+            [specql.impl.registry :as registry]))
 
 
 (defmacro define-tables
@@ -71,3 +72,18 @@
   "Update matching records. Returns number of records updated."
   [db table record where]
   (update/update! db table record where))
+
+
+;; Functions to query the runtime information
+
+(defn columns
+  "Return set of all column names in the given table.
+  Only the base columns of the table are returned.
+  If the given table has not been defined, returns nil."
+  [table-kw]
+  (registry/columns table-kw))
+
+(defn tables
+  "Returns a set containing all defined table keywords"
+  []
+  (registry/tables))

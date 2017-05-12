@@ -1,5 +1,6 @@
 (ns specql.core-test
-  (:require [specql.core :refer [define-tables fetch insert! delete! update! upsert!]]
+  (:require [specql.core :refer [define-tables fetch insert! delete! update! upsert!
+                                 columns tables]]
             [specql.op :as op]
             [specql.rel :as rel]
             [specql.transform :as xf]
@@ -648,3 +649,16 @@
                (fetch db :issue/issue #{:issue/id :issue/title :issue/status :issue/type}
                       {:issue/status :issue.status/resolved
                        :issue/title "foo"})))))))
+
+
+(deftest query-registry
+  (testing "Some of our defined tables are found in the registry"
+    (is (every? (tables) [:employee/employees :issue/issue
+                          :company/companies :department/departments])))
+
+  (testing "Non-existant tables are not in the registry"
+    (is (every? (complement (tables)) [:foo/bar :no-such/table])))
+
+  (testing "Fields are returned"
+    (is (= #{:issue/id :issue/title :issue/type :issue/}
+           (columns :issue/issue)))))

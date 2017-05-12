@@ -63,3 +63,10 @@
 (defn required-insert? [{:keys [not-null? has-default?]}]
   (and not-null?
        (not has-default?)))
+
+(defn columns [table-kw]
+  (when-let [cols (-> @table-info-registry table-kw :columns)]
+    (set (keys cols))))
+
+(defn tables []
+  (-> @table-info-registry keys set))

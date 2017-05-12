@@ -8,6 +8,9 @@
             [specql.impl.composite :as composite]
             [specql.impl.util :refer :all]))
 
+(when-not (resolve 'any?)
+  (require '[clojure.future :refer :all]))
+
 (defn- validate-column-types [tables]
   (let [kw-types (->> tables
                       vals

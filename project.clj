@@ -5,7 +5,10 @@
   :profiles {:dev {:dependencies [[org.clojure/test.check "0.9.0"]
                                  [com.opentable.components/otj-pg-embedded "0.7.1"]]}}
 
+  :plugins [[lein-codox "0.10.3"]]
   :source-paths ["src"]
   :test-paths ["test"]
   :jvm-opts ["-Duser.timezone=GMT"]
-  :monkeypatch-clojure-test false)
+  :monkeypatch-clojure-test false
+
+  :codox {:output-path "docs/api"})

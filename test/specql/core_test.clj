@@ -660,5 +660,5 @@
     (is (every? (complement (tables)) [:foo/bar :no-such/table])))
 
   (testing "Fields are returned"
-    (is (= #{:issue/id :issue/title :issue/type :issue/}
+    (is (= #{:issue/id :issue/title :issue/type :issue/description :issue/status}
            (columns :issue/issue)))))

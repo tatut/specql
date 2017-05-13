@@ -590,7 +590,15 @@
     (asserted #"\"tablename\" fails spec"
               (eval-ns '(define-tables define-db
                           ;; not in vector
-                          "tablename" :table/keyword)))))
+                          "tablename" :table/keyword))))
+
+  (testing "Unknown JOIN throws error"
+    (asserted
+     #"Don't know how to fetch joined :deparment/no-such-join"
+     (fetch db :department/departments
+            #{:department/id
+              [:deparment/no-such-join #{:no-such-thing/id}]}
+            {}))))
 
 
 ;; Test custom field transformation

@@ -40,6 +40,9 @@
                rel (-> table-info-registry
                        primary-table
                        :rel join-field)
+               _ (assert rel
+                         (str "Don't know how to fetch joined " join-field ". "
+                              "Add missing relations in define-tables call."))
                this-table-column
                (-> rel ::rel/this-table-column primary-table-columns)
                join-type (if (and (not= ::rel/has-many

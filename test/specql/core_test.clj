@@ -61,6 +61,11 @@
   ["mailinglist" :mailinglist/mailinglist]
   )
 
+(defmacro asserted [msg-regex & body]
+  `(is (~'thrown-with-msg?
+        AssertionError ~msg-regex
+        (do ~@body))))
+
 (deftest tables-have-been-created
   ;; If test data has been inserted, we know that all tables were create
   (is (= [{:companies 2}] (jdbc/query db ["SELECT COUNT(id) AS companies FROM company"]))))
@@ -564,14 +569,28 @@
                   ["nameclash1" :nameclash/nameclash1]
                   ["nameclash2" :nameclash/nameclash2]))))))
 
+;; Tests for typos / errors in calling specql
 (deftest errors
   (testing "Invalid columns set"
-    (is (thrown-with-msg?
-         AssertionError #"Columns must be a non-empty set"
-         (fetch db :employee/employees #{} {})))
-    (is (thrown-with-msg?
-         AssertionError #"Columns must be a non-empty set"
-         (fetch db :employee/employees [:this :is :not :a :set] {})))))
+    (asserted #"Columns must be a non-empty set"
+              (fetch db :employee/employees #{} {}))
+    (asserted #"Columns must be a non-empty set"
+              (fetch db :employee/employees [:this :is :not :a :set] {})))
+
+  (testing "Invalid define-tables is caught"
+    (asserted #"\"options\" fails spec"
+             (eval '(define-tables define-db
+                      ["foo" :bar/sky
+                       "options" :not-a-map])))
+
+    (asserted #":tbl fails spec"
+              (eval '(define-tables define-db
+                       [:tbl "bar"])))
+
+    (asserted #"\"tablename\" fails spec"
+              (eval '(define-tables define-db
+                       ;; not in vector
+                       "tablename" :table/keyword)))))
 
 
 ;; Test custom field transformation

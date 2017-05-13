@@ -11,6 +11,30 @@
 (when-not (resolve 'any?)
   (require '[clojure.future :refer :all]))
 
+(s/def ::tables-definition
+  (s/coll-of ::table-definition))
+
+(s/def ::table-definition
+  (s/cat :table-name string?
+         :table-keyword qualified-keyword?
+         :table-options (s/? ::table-options)))
+
+(s/def ::table-options
+  (s/and map?
+         (s/coll-of ::table-option)))
+
+(s/def ::table-option
+  (s/or :rename ::table-column-rename
+        :options ::table-column-options))
+
+(s/def ::table-column-rename
+  (s/cat :column-name string?
+         :column-keyword qualified-keyword?))
+
+(s/def ::table-column-options
+  (s/cat :column-keyword qualified-keyword?
+         :column-options map?))
+
 (defn- validate-column-types [tables]
   (let [kw-types (->> tables
                       vals
@@ -130,10 +154,10 @@
   "See specql.core/define-tables for documentation."
   [db & tables]
   (let [db (eval db)]
-    (let [table-info (into {}
+    (let [tables (assert-spec ::tables-definition (map eval tables))
+          table-info (into {}
                            (map (fn [[table-name table-keyword opts]]
-                                  (let [ns (name (namespace table-keyword))
-                                        opts (eval opts)]
+                                  (let [ns (name (namespace table-keyword))]
                                     [table-keyword
                                      (-> (table-info db table-name)
                                          (assoc :insert-spec-kw

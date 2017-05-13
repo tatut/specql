@@ -590,9 +590,9 @@
                           [:tbl "bar"])))
 
     (asserted #"\"tablename\" fails spec"
-              (eval '(define-tables define-db
-                       ;; not in vector
-                       "tablename" :table/keyword)))))
+              (eval-ns '(define-tables define-db
+                          ;; not in vector
+                          "tablename" :table/keyword)))))
 
 
 ;; Test custom field transformation

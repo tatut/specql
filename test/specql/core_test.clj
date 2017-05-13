@@ -598,7 +598,13 @@
      (fetch db :department/departments
             #{:department/id
               [:deparment/no-such-join #{:no-such-thing/id}]}
-            {}))))
+            {})))
+
+  (testing "Concise reporting of SQL connection errors"
+    (asserted
+     #"Unable to establish database connection to: "
+     (eval-ns '(define-tables {:connection-uri "jdbc:postgresql://no-such-host:666/mydb"}
+                 ["foo" :foo/bar])))))
 
 
 ;; Test custom field transformation

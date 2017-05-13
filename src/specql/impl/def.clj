@@ -6,7 +6,8 @@
             [specql.impl.catalog :refer :all]
             [specql.impl.registry :as registry :refer :all]
             [specql.impl.composite :as composite]
-            [specql.impl.util :refer :all]))
+            [specql.impl.util :refer :all]
+            [clojure.java.jdbc :as jdbc]))
 
 (when-not (resolve 'any?)
   (require '[clojure.future :refer :all]))
@@ -150,11 +151,19 @@
               column))) %)))
    new-table-info))
 
+(defn- connect [db]
+  (try
+    (jdbc/get-connection db)
+    (catch Exception e
+      (assert false (str "Unable to establish database connection to: " (pr-str db)
+                         ".\n" (.getName (class e)) ": " (.getMessage e))))))
+
 (defmacro define-tables
   "See specql.core/define-tables for documentation."
   [db & tables]
-  (let [db (eval db)]
-    (let [tables (assert-spec ::tables-definition (map eval tables))
+  (with-open [con (connect (eval db))]
+    (let [db {:connection con}
+          tables (assert-spec ::tables-definition (map eval tables))
           table-info (into {}
                            (map (fn [[table-name table-keyword opts]]
                                   (let [ns (name (namespace table-keyword))]
@@ -190,23 +199,24 @@
          ~(when-not cljs?
             `(swap! table-info-registry merge ~new-table-info))
 
-         ~@(for [[_ table-keyword] tables
-                 :let [{columns :columns
-                        insert-spec-kw :insert-spec-kw :as table}
-                       (table-info table-keyword)
-                       {required-insert true
-                        optional-insert false} (group-by (comp required-insert? second) columns)]]
-             (if (= :enum (:type table))
-               (enum-spec table-keyword table)
-               `(do
-                  ;; Create the keys spec for the table
-                  (s/def ~table-keyword
-                    (s/keys :opt [~@(keys columns)]))
+         ~@(doall
+            (for [[_ table-keyword] tables
+                  :let [{columns :columns
+                         insert-spec-kw :insert-spec-kw :as table}
+                        (table-info table-keyword)
+                        {required-insert true
+                         optional-insert false} (group-by (comp required-insert? second) columns)]]
+              (if (= :enum (:type table))
+                (enum-spec table-keyword table)
+                `(do
+                   ;; Create the keys spec for the table
+                   (s/def ~table-keyword
+                     (s/keys :opt [~@(keys columns)]))
 
-                  ;; Spec for a "full" row that has all NOT NULL values
-                  (s/def ~insert-spec-kw
-                    (s/keys :req [~@(keys required-insert)]
-                            :opt [~@(keys optional-insert)]))
+                   ;; Spec for a "full" row that has all NOT NULL values
+                   (s/def ~insert-spec-kw
+                     (s/keys :req [~@(keys required-insert)]
+                             :opt [~@(keys optional-insert)]))
 
-                  ;; Create specs for columns
-                  ~@(column-specs db table-info columns))))))))
+                   ;; Create specs for columns
+                   ~@(doall (column-specs db table-info columns))))))))))

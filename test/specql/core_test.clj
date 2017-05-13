@@ -551,23 +551,25 @@
 
 (def test-ns *ns*)
 
+(defn eval-ns [form]
+  (binding [*ns* test-ns]
+    (eval form)))
+
 (deftest typeclash
   (is (thrown-with-msg?
        AssertionError #":typeclash/start is already defined as \"timestamp\" and now trying to define it as \"time\""
 
-       (binding [*ns* test-ns]
-         (eval '(define-tables define-db
-                  ["typeclash1" :typeclash/one]
-                  ["typeclash2" :typeclash/two]))))))
+       (eval-ns '(define-tables define-db
+                   ["typeclash1" :typeclash/one]
+                   ["typeclash2" :typeclash/two])))))
 
 (deftest nameclash
   (is (thrown-with-msg?
        AssertionError #"Table :nameclash/nameclash1 is also defined as a column"
 
-       (binding [*ns* test-ns]
-         (eval '(define-tables define-db
-                  ["nameclash1" :nameclash/nameclash1]
-                  ["nameclash2" :nameclash/nameclash2]))))))
+       (eval-ns '(define-tables define-db
+                   ["nameclash1" :nameclash/nameclash1]
+                   ["nameclash2" :nameclash/nameclash2])))))
 
 ;; Tests for typos / errors in calling specql
 (deftest errors
@@ -579,13 +581,13 @@
 
   (testing "Invalid define-tables is caught"
     (asserted #"\"options\" fails spec"
-             (eval '(define-tables define-db
-                      ["foo" :bar/sky
-                       "options" :not-a-map])))
+              (eval-ns '(define-tables define-db
+                          ["foo" :bar/sky
+                           "options" :not-a-map])))
 
     (asserted #":tbl fails spec"
-              (eval '(define-tables define-db
-                       [:tbl "bar"])))
+              (eval-ns '(define-tables define-db
+                          [:tbl "bar"])))
 
     (asserted #"\"tablename\" fails spec"
               (eval '(define-tables define-db

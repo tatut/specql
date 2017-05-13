@@ -556,20 +556,18 @@
     (eval form)))
 
 (deftest typeclash
-  (is (thrown-with-msg?
-       AssertionError #":typeclash/start is already defined as \"timestamp\" and now trying to define it as \"time\""
-
-       (eval-ns '(define-tables define-db
-                   ["typeclash1" :typeclash/one]
-                   ["typeclash2" :typeclash/two])))))
+  (asserted
+   #":typeclash/start is already defined as \"timestamp\" and now trying to define it as \"time\""
+   (eval-ns '(define-tables define-db
+               ["typeclash1" :typeclash/one]
+               ["typeclash2" :typeclash/two]))))
 
 (deftest nameclash
-  (is (thrown-with-msg?
-       AssertionError #"Table :nameclash/nameclash1 is also defined as a column"
-
-       (eval-ns '(define-tables define-db
-                   ["nameclash1" :nameclash/nameclash1]
-                   ["nameclash2" :nameclash/nameclash2])))))
+  (asserted
+   #"Table :nameclash/nameclash1 is also defined as a column"
+   (eval-ns '(define-tables define-db
+               ["nameclash1" :nameclash/nameclash1]
+               ["nameclash2" :nameclash/nameclash2]))))
 
 ;; Tests for typos / errors in calling specql
 (deftest errors

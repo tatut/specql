@@ -54,6 +54,7 @@ See the [docs](https://tatut.github.io/specql) for more examples.
 * Operators now take a third argument: column info
 * Support "point" type as vector [x y] in composites
 * New functions: `columns` and `tables` for querying the runtime registry
+* Improved error handling and better error messages
 
 
 # work in progress

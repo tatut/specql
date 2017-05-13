@@ -18,14 +18,16 @@
 
 (define-tables define-db
   ["address" :address/address]
-  ["employee" :employee/employees {;; Remap department with suffix, so that we
-                                   ;; can use the unsuffixed for the JOIN
-                                   "department" :employee/department-id
+  ["employee" :employee/employees
+   ;; Multiple option maps are automatically merged
+   {;; Remap department with suffix, so that we
+    ;; can use the unsuffixed for the JOIN
+    "department" :employee/department-id}
 
-                                   :employee/department
-                                   (rel/has-one :employee/department-id
-                                                :department/departments
-                                                :department/id)}]
+   {:employee/department
+    (rel/has-one :employee/department-id
+                 :department/departments
+                 :department/id)}]
   ["company" :company/companies]
   ["department" :department/departments {:department/employees
                                          (rel/has-many :department/id

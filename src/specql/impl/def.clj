@@ -18,7 +18,7 @@
 (s/def ::table-definition
   (s/cat :table-name string?
          :table-keyword qualified-keyword?
-         :table-options (s/? ::table-options)))
+         :table-options (s/* ::table-options)))
 
 (s/def ::table-options
   (s/and map?
@@ -158,12 +158,19 @@
       (assert false (str "Unable to establish database connection to: " (pr-str db)
                          ".\n" (.getName (class e)) ": " (.getMessage e))))))
 
+(defn- merge-table-options [[table-name table-keyword & option-maps]]
+  (let [merged-options (reduce merge option-maps)]
+    (if (empty? merged-options)
+      [table-name table-keyword]
+      [table-name table-keyword merged-options])))
+
 (defmacro define-tables
   "See specql.core/define-tables for documentation."
   [db & tables]
   (with-open [con (connect (eval db))]
     (let [db {:connection con}
-          tables (assert-spec ::tables-definition (map eval tables))
+          tables (map merge-table-options
+                      (assert-spec ::tables-definition (map eval tables)))
           table-info (into {}
                            (map (fn [[table-name table-keyword opts]]
                                   (let [ns (name (namespace table-keyword))]

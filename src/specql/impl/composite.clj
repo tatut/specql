@@ -167,7 +167,7 @@
 
 ;; Write back composite values to postgres string representation
 
-(defmulti stringify-value (fn [t val] t))
+(defmulti stringify-value (fn [t val] (:type t)))
 
 (defmethod stringify-value "timestamp" [_ val]
   (if (nil? val)
@@ -181,7 +181,8 @@
        ")"))
 
 ;; int4,int8,varchar,text,uuid,time,float8,numeric all default to (str val)
-(defmethod stringify-value :default [_ val] (str val))
+(defmethod stringify-value :default [t val]
+  (str val))
 
 (defn pg-quote [string]
   (if (str/blank? string)

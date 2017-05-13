@@ -30,6 +30,8 @@
                   ;; FIXME: what's bytes in clojurescript?
                   :cljs any?))
 
+(s/def ::point (s/coll-of number?))
+
 ;; FIXME: support more postgres types
 #_(remove #(or (str/starts-with? % "pg_") (str/starts-with? % "_"))
         (map :typname (jdbc/query db [ "SELECT distinct(typname) from pg_type"])))

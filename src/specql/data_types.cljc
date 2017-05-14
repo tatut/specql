@@ -5,6 +5,7 @@
    (when-not (resolve 'any?)
      (require '[clojure.future :refer :all])))
 
+(s/def ::int2 (s/int-in -32768 32767))
 (s/def ::int4 (s/int-in -2147483648 2147483647))
 (s/def ::int8 (s/int-in -9223372036854775808 9223372036854775807))
 (s/def ::float8 double?)

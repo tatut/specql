@@ -31,7 +31,13 @@
                   ;; FIXME: what's bytes in clojurescript?
                   :cljs any?))
 
+;; Geometry types
 (s/def ::point (s/coll-of number?))
+
+;; PENDING: We don't currently have a good geometry type,
+;; users probably want to transform to some clojure data
+;; representation
+(s/def ::geometry any?)
 
 ;; FIXME: support more postgres types
 #_(remove #(or (str/starts-with? % "pg_") (str/starts-with? % "_"))

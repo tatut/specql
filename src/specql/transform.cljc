@@ -1,5 +1,6 @@
 (ns specql.transform
   "Define custom transformation to be done for a field."
+  (:refer-clojure :exclude [Keyword ->Keyword])
   (:require [clojure.spec.alpha :as s]))
 
 (defprotocol Transform

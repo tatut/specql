@@ -198,12 +198,14 @@
           new-table-info (apply-enum-transformations table-info new-table-info)
           cljs? (cljs?)]
 
-
       (validate-table-info table-info)
+
+      ;; Merge table info here, so that it is available in cljs compilation
+      (swap! table-info-registry merge new-table-info)
+
       `(do
          ;; Register table info so that it is available at runtime
-         ;; Only for Clojure
-         ~(when-not cljs?
+         ~(when cljs?
             `(swap! table-info-registry merge ~new-table-info))
 
          ~@(doall

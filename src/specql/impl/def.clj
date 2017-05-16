@@ -68,14 +68,6 @@
   (validate-column-types tables)
   (validate-table-names tables))
 
-(defn- cljs?
-  "Check if we are compiling cljs"
-  []
-  (some-> 'cljs.analyzer
-          find-ns
-          (ns-resolve '*cljs-file*)
-          boolean?))
-
 (defn- type-spec [db table-info {:keys [category type] :as column}]
   (if (= "A" category)
     (:element-type column)
@@ -195,8 +187,7 @@
                           {}
                           table-info)
           table-info (merge @table-info-registry new-table-info)
-          new-table-info (apply-enum-transformations table-info new-table-info)
-          cljs? (cljs?)]
+          new-table-info (apply-enum-transformations table-info new-table-info)]
 
       (validate-table-info table-info)
 
@@ -205,8 +196,7 @@
 
       `(do
          ;; Register table info so that it is available at runtime
-         ~(when cljs?
-            `(swap! table-info-registry merge ~new-table-info))
+         (swap! table-info-registry merge ~new-table-info)
 
          ~@(doall
             (for [[_ table-keyword] tables

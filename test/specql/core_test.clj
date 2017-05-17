@@ -224,6 +224,9 @@
     (is (= #{"Wile E. Coyote"}
            (names {:employee/name (op/like "%yo%")})))
 
+    (is (= #{"Wile E. Coyote"}
+           (names {:employee/name (op/ilike "%CoyoTE")})))
+
     (is (= #{"Max Syöttöpaine" "Foo Barsky"}
            (names {:employee/name (op/not (op/like "%yo%"))})))
 

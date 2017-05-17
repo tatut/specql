@@ -35,6 +35,7 @@
 (defoperator >= [:val " >= " :arg])
 (defoperator between ["(" :val " BETWEEN " :arg " AND " :arg ")"])
 (defoperator like [:val " LIKE " :arg])
+(defoperator ilike [:val " ILIKE " :arg])
 
 (defrecord Inop [values]
   Op

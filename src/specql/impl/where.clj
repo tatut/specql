@@ -13,7 +13,7 @@
                     path-prefix]
   (loop [sql []
          params []
-         [record & records] records]
+         [record & records] (remove nil? records)]
     (if-not record
       [(str "(" (str/join combine-with sql) ")")
        params]

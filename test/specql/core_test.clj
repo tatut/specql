@@ -250,6 +250,13 @@
     (is (= #{"Foo Barsky"}
            (names {:employee/employment-ended op/not-null?})))
 
+    (is (= #{"Max Syöttöpaine"}
+           (names (op/and
+                   {:employee/name (op/like "%e")}
+                   nil ;; nils are ignored, so conditional (when some-condition {...filter}) are easy
+                   {:employee/name (op/like "Max%")}))))
+
+
     (testing "or works on whole maps"
       (is (= #{"Wile E. Coyote" "Foo Barsky"}
              (names (op/or

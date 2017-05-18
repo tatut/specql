@@ -168,16 +168,27 @@
   The resultset processing will use the ctid fields to detect same rows and
   add nested maps to the correct sequences."
   [table-alias alias-fn]
-  (vec
-   (keep (fn [[left right]]
-           ;; If the right table is a has-many join to the left,
-           ;; add the left table ctid
-           (when-let [has-many-collection (nth right 5)]
-             [(keyword (alias-fn :ctid))
-              [(str "CAST(\"" (second left) "\".ctid AS varchar)")
-               ;; the collection to add to if this id hasn't changed
-               has-many-collection]]))
-         (partition 2 1 table-alias))))
+  (let [left (first table-alias)]
+    ;; FIXME: this can now only do a has-many join to the first table
+    ;; can't fetch a has-many relation for another joined (and no error is thrown)
+    ;; The previous was erroneus as it depended on the order of the joins, it should
+    ;; always add the CTID of the table the has-many relation belongs to... NOT
+    ;; the table that happens to be left of it.
+    ;;
+    ;; TODO: Rewrite join CTID add logic
+
+    (vec
+     (keep (fn [[_ right]] ;; was [[left right]], see fixme above
+             ;; If the right table is a has-many join to the left,
+             ;; add the left table ctid
+             (when-let [has-many-collection (nth right 5)]
+               (do
+                 ;(println "HAS-MANY: left="  (pr-str left) "; right=" (pr-str right))
+                 [(keyword (alias-fn :ctid))
+                  [(str "CAST(\"" (second left) "\".ctid AS varchar)")
+                   ;; the collection to add to if this id hasn't changed
+                   has-many-collection]])))
+           (partition 2 1 table-alias)))))
 
 
 

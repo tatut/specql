@@ -256,6 +256,13 @@
                    nil ;; nils are ignored, so conditional (when some-condition {...filter}) are easy
                    {:employee/name (op/like "Max%")}))))
 
+    (is (= #{"Max Syöttöpaine" "Foo Barsky" "Wile E. Coyote"}
+           (names (op/and
+                   ;; dynamic and generation may cause all combined ops to be nil
+                   ;; this should not generate any SQL
+                   nil
+                   nil))))
+
 
     (testing "or works on whole maps"
       (is (= #{"Wile E. Coyote" "Foo Barsky"}

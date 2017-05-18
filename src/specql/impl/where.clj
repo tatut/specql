@@ -11,17 +11,19 @@
 (defn- combine-ops [table-info-registry path->table
                     {combine-with :combine-with records :ops :as record}
                     path-prefix]
-  (loop [sql []
-         params []
-         [record & records] (remove nil? records)]
-    (if-not record
-      [(str "(" (str/join combine-with sql) ")")
-       params]
-      (let [[record-sql record-params]
-            (sql-where table-info-registry path->table record path-prefix)]
-        (recur (conj sql record-sql)
-               (into params record-params)
-               records)))))
+  (let [records (remove nil? records)]
+    (when (seq records)
+      (loop [sql []
+             params []
+             [record & records] records]
+        (if-not record
+          [(str "(" (str/join combine-with sql) ")")
+           params]
+          (let [[record-sql record-params]
+                (sql-where table-info-registry path->table record path-prefix)]
+            (recur (conj sql record-sql)
+                   (into params record-params)
+                   records)))))))
 
 (defn- where-map [table-info-registry path->table record path-prefix]
   (let [{:keys [table alias]} (path->table path-prefix)

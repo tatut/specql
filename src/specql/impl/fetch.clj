@@ -148,7 +148,7 @@
               ;; Remove key for empty items
               (if (> (count path) 1)
                 (update-in result (butlast path) dissoc (last path))
-                (update result dissoc (first path))))))
+                (dissoc result (first path))))))
         (group-by (comp group-kw ::group meta) results)))
 
 (defn- group-collections [has-many-join-cols results]

@@ -9,6 +9,16 @@
             [clojure.java.jdbc :as jdbc]
             [specql.transform :as xf]))
 
+(defn- sort-by-suffix
+  "A *kludge* to sort tables by suffix. PENDING: rewrite JOIN logic to be smarter.
+  Now tables may appear in the wrong order and cause invalid SQL."
+  [tables]
+  (sort-by (comp #(Integer/valueOf %)
+                 second
+                 #(re-matches #"\w+(\d+)" %)
+                 second)
+           tables))
+
 (defn- fetch-tables
   "Determine all tables to query from. JOINs tables indicated by columns.
   Returns a vector tables and aliases with join clauses and column mapping:
@@ -33,7 +43,7 @@
             [c & cs] (filter vector? columns)]
        (if-not c
          ;; No more joins, return accumulated tables
-         table
+         (sort-by-suffix table)
 
          ;; Join table
          (let [[join-field join-table-columns] c
@@ -77,7 +87,8 @@
                                                      (conj [join-field] c)))))
                                   (remove vector? join-table-columns))
                            (when (= ::rel/has-many (::rel/type rel))
-                             (into path-prefix [join-field]))]]
+                             (into path-prefix [join-field]))
+                           primary-table]]
                          nested-joins))
                   cs)))))))
 
@@ -102,64 +113,69 @@
           (when join-cond
             (str " ON " join-cond))))))
 
+(defn- vectorize-path [row path]
+  (when row
+    (if (empty? path)
+      (cond
+        (nil? row) []
+        (vector? row) row
+        :else [row])
+      (do
+        (println "update " row " at " (first path))
+        (update row (first path)
+                (fn [row]
+                  (println "VECTORIZE ROW: " row ", PATH: " path)
+                  (if (vector? row)
+                    (mapv #(vectorize-path % (rest path)) row)
+                    (vectorize-path row (rest path)))))))))
 
-(defn- collection-processing-fn
-  "Takes columns describing has-many joins and returns a grouping function
-  that is used to determine row ::group metadata and a function that processes
-  all rows and combines results."
-  [has-many-join-cols]
-  (let [group-fn (apply juxt (map first has-many-join-cols))
-        last-idx (dec (count has-many-join-cols))
-        vectorize (fn [row]
-                    ;; Make sure collections are vectors
-                    (reduce (fn [row [_ [_ path]]]
-                              (update-in row path
-                                         #(cond
-                                            (nil? %) []
-                                            (vector? %) %
-                                            :else [%])))
-                            row
-                            has-many-join-cols))]
-    [group-fn
-     (fn [results]
-       ;; PENDING: Make this a lazy operation
-       (loop [acc []
-              previous-row (first results)
-              previous-group (::group (meta previous-row))
-              [row & rows] (rest results)]
-         (if-not row
-           (if (nil? previous-row)
-             acc
-             (seq (conj acc (vectorize previous-row))))
-           (let [row-group (::group (meta row))]
-             ;; Go through the group in reverse order, if a ctid is changed
-             ;; add to the corresponding collection.
-             ;; If the 0th ctid has changed, emit a new result row
-             (if-let [combined-row
-                      (loop [i last-idx]
 
-                        (if (neg? i)
-                          ;; No same ctids found, emit new row
-                          nil
-                          (if (= (nth previous-group i)
-                                 (nth row-group i))
-                            (let [[_ collection] (second (nth has-many-join-cols i))
-                                  next-val (get-in row collection)]
-                              (update-in previous-row collection
-                                         (fn [val]
-                                           (if (vector? val)
-                                             (conj val next-val)
-                                             [val next-val]))))
-                            (recur (dec i)))))]
-               (recur acc
-                      combined-row row-group
-                      rows)
 
-               (recur (conj acc
-                            (vectorize previous-row))
-                      row row-group
-                      rows))))))]))
+;; For ALL joins (not just has-many joins) add the *this table column* field for the left
+;; side.
+;;
+;; Use the ids instead of ctids to do the joins.
+;; Use NULL values in those ids to detect if something is missing
+;;
 
+(defn- group-collection [results group-kw path]
+  (mapv (fn [[group-key group]]
+          (let [result (first group)
+                items (into [] (keep #(get-in % path) group))]
+            (if (not (empty? items))
+              (assoc-in result path items)
+
+              ;; Remove key for empty items
+              (if (> (count path) 1)
+                (update-in result (butlast path) dissoc (last path))
+                (update result dissoc (first path))))))
+        (group-by (comp group-kw ::group meta) results)))
+
+(defn- group-collections [has-many-join-cols results]
+  ;; Take all ctids of joins that have the keyword in path (is a prefix)
+  ;; grouping function is a select-keys of all relevant ctids at this level
+  ;; a deeper nested join will have more ctids
+
+  (reduce (fn [results [result-kw [_ path] :as has-many-join-col]]
+            (let [path-parts (into #{} path)
+
+                  ;; Take all ctids of tables that appear in the path
+                  ctids (into #{}
+                              (keep (fn [[ctid [_ join-path]]]
+                                      (when (some path-parts join-path)
+                                        ctid)))
+                              has-many-join-cols)]
+
+              ;; Group results by selecting the ctid keys
+              (group-collection results #(select-keys % ctids) path)))
+
+          results
+
+          ;; Sort by path depth (join deeper collections first)
+          (reverse
+           (sort-by (fn [[_ [_ path] :as has-many-join-col]]
+                      (count path))
+                    has-many-join-cols))))
 
 
 (defn- has-many-join-columns
@@ -168,27 +184,18 @@
   The resultset processing will use the ctid fields to detect same rows and
   add nested maps to the correct sequences."
   [table-alias alias-fn]
-  (let [left (first table-alias)]
-    ;; FIXME: this can now only do a has-many join to the first table
-    ;; can't fetch a has-many relation for another joined (and no error is thrown)
-    ;; The previous was erroneus as it depended on the order of the joins, it should
-    ;; always add the CTID of the table the has-many relation belongs to... NOT
-    ;; the table that happens to be left of it.
-    ;;
-    ;; TODO: Rewrite join CTID add logic
-
-    (vec
-     (keep (fn [[_ right]] ;; was [[left right]], see fixme above
-             ;; If the right table is a has-many join to the left,
-             ;; add the left table ctid
-             (when-let [has-many-collection (nth right 5)]
-               (do
-                 ;(println "HAS-MANY: left="  (pr-str left) "; right=" (pr-str right))
-                 [(keyword (alias-fn :ctid))
-                  [(str "CAST(\"" (second left) "\".ctid AS varchar)")
-                   ;; the collection to add to if this id hasn't changed
-                   has-many-collection]])))
-           (partition 2 1 table-alias)))))
+  (keep (fn [right]
+          (let [left-table-kw (nth right 6)
+                left (or (some (fn [[tbl :as table]]
+                                 (when (= tbl left-table-kw)
+                                   table)) table-alias)
+                         (first table-alias))]
+            (when-let [has-many-collection (nth right 5)]
+              [(keyword (alias-fn :ctid))
+               [(str "CAST(\"" (second left) "\".ctid AS varchar)")
+                ;; the collection to add to if this id hasn't changed
+                has-many-collection]])))
+        (rest table-alias)))
 
 
 
@@ -251,14 +258,16 @@
                        (fetch-columns table-info-registry table alias alias-fn columns)))
 
         has-many-join-cols (has-many-join-columns table-alias alias-fn)
-
         [group-fn process-collections]
         (if (empty? has-many-join-cols)
           ;; No has-many joins, don't do collection processing
           [nil identity]
 
           ;; Create a function to add rows to collections
-          (collection-processing-fn has-many-join-cols))
+          [(let [join-keys (into #{} (map first has-many-join-cols))]
+             #(select-keys % join-keys))
+           (fn [results]
+             (group-collections has-many-join-cols results))])
 
         path->table (path->table-mapping table-alias)
         [where-clause where-parameters]
@@ -283,7 +292,6 @@
                               (comp (post-process-arrays-fn array-paths)
                                     process-collections))]
 
-    ;;(println "cols: " (pr-str cols))
     ;;(println "SQL: " (pr-str sql-and-parameters))
 
     ;; Post process: parse arrays after joined collections
@@ -314,4 +322,5 @@
 
           ;; Query the generated SQL with the where map arguments
           (jdbc/query db sql-and-parameters)))
-        {::sql sql-and-parameters}))))
+        {::has-many-join-cols has-many-join-cols
+         ::sql sql-and-parameters}))))

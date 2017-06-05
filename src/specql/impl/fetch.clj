@@ -297,7 +297,10 @@
     ;; Post process: parse arrays after joined collections
     ;; have been processed. So that we don't unnecessarily parse
     ;; the same array many times
-    (jdbc/with-db-connection [db db]
+    (jdbc/with-db-transaction [db db]
+      ;; Use transaction here because we need the connection when reading composite values.
+      ;; Don't use with-db-connection as that prevents an outer transaction by closing the
+      ;; connection after.
       (with-meta
         (process-collections
          (map

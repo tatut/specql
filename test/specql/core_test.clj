@@ -714,3 +714,14 @@
   (testing "Fields are returned"
     (is (= #{:issue/id :issue/title :issue/type :issue/description :issue/status}
            (columns :issue/issue)))))
+
+(deftest tx
+  (jdbc/with-db-transaction [db db]
+
+    (let [count-before (count (fetch db :issue/issue #{:issue/type} {}))]
+      (insert! db :issue/issue
+               #:issue {:title "added in tx"
+                        :status :issue.status/open
+                        :type :feature})
+
+      (is (= (count (fetch db :issue/issue #{:issue/type} {})) (inc count-before))))))

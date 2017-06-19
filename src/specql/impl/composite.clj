@@ -124,13 +124,21 @@
 (defn- pg-datetime-format []
   (java.text.SimpleDateFormat. "yyyy-MM-dd HH:mm:ss"))
 
+(defn- pg-date-format []
+  (java.text.SimpleDateFormat. "yyyy-MM-dd"))
+
 (defn- pg-datetime [string]
   (.parse (pg-datetime-format)
           string))
 
+(defn- pg-date [string]
+  (.parse (pg-date-format) string))
+
 (defmethod parse-value "timestamp" [_ string]
   (pg-datetime string))
 
+(defmethod parse-value "date" [_ string]
+  (pg-date string))
 
 ;; FIXME: support all types here as well
 
@@ -173,6 +181,11 @@
   (if (nil? val)
     ""
     (.format (pg-datetime-format) val)))
+
+(defmethod stringify-value "date" [_ val]
+  (if (nil? val)
+    ""
+    (.format (pg-date-format) val)))
 
 (defmethod stringify-value "point" [_ vals]
   ;; [x,y] vector to "(x,y)" string

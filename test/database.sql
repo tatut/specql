@@ -150,3 +150,58 @@ CREATE TABLE issue (
   status status,
   type issuetype
 );
+
+
+-- Some tables for multiple has-many join tests
+
+-- CREATE TABLE customer (
+--   id SERIAL PRIMARY KEY,
+--   name TEXT NOT NULL,
+--   email TEXT,
+--   "shipping-address" address
+-- );
+
+-- CREATE TYPE cardtype AS ENUM (
+--   'mistercord', 'vasi', 'lunchers league', 'european rapid');
+
+-- CREATE TABLE paymentinfo (
+--   type cardtype,
+--   "customer-id" INTEGER REFERENCES customer (id),
+--   "card-number" VARCHAR(16),
+--   "cvv-number" VARCHAR(4),
+--   name TEXT,
+--   "billing-address" address
+-- );
+
+-- CREATE TABLE category (
+--   id SERIAL PRIMARY KEY,
+--   name TEXT,
+--   description TEXT
+-- );
+
+-- CREATE TABLE product (
+--   id SERIAL PRIMARY KEY,
+--   name TEXT,
+--   description TEXT
+--   -- and so on
+-- );
+
+-- -- A many to many link table
+-- CREATE TABLE "product-category" (
+--   "product-id" INTEGER NOT NULL REFERENCES product (id),
+--   "category-id" INTEGER NOT NULL REFERENCES category (id)
+-- );
+
+
+-- CREATE TABLE orderline (
+--   "order-id" INTEGER NOT NULL REFERENCES order (id),
+--   "product-id" INTEGER NOT NULL REFERENCES product (id),
+--   unitprice NUMERIC,
+--   quantity INTEGER
+-- );
+
+-- CREATE TABLE order (
+--   id SERIAL PRIMARY KEY,
+--   "ordered-at" DATETIME NOT NULL,
+--   "customer-id" INTEGER REFERENCES customer (id)
+-- );

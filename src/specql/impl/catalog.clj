@@ -23,6 +23,18 @@
                         "       JOIN pg_catalog.pg_namespace n ON n.oid = t.typnamespace"
                         " WHERE t.typname=?"))
 
+(def ^:private sproc-q
+  (str "SELECT p.*, p.pronargs as argc, p.proargnames as argnames, "
+       "ret.typname AS return_type, ret.typcategory AS return_category"
+       " FROM pg_catalog.pg_proc p "
+       " JOIN pg_catalog.pg_type ret ON p.prorettype = ret.oid"
+       " WHERE p.proname = ?"))
+
+(def ^:private sproc-args-types-q
+  (str "SELECT t.typname AS type, t.typcategory AS category"
+       " FROM pg_catalog.pg_type t"
+       " WHERE t.oid = ANY(?)"))
+
 (defn enum-values [db enum-type-name]
   (into #{}
         (map :value)

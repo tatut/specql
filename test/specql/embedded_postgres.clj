@@ -5,11 +5,15 @@
 
 (def ^:dynamic db nil)
 
-(defn- create-test-database [db]
+(defn- run-statements [db resource split]
   (doseq [statement (remove str/blank?
-                            (str/split (slurp "test/database.sql") #";"))]
+                            (str/split (slurp resource) split))]
     (println "SQL: " statement)
     (jdbc/execute! db statement)))
+
+(defn- create-test-database [db]
+  (run-statements db "test/database.sql" #";")
+  (run-statements db "test/sprocs.sql" #"-#-"))
 
 (defonce db-provider (PreparedDbProvider/forPreparer
                       (reify DatabasePreparer

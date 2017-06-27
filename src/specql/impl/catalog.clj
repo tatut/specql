@@ -32,8 +32,11 @@
 
 (def ^:private sproc-args-types-q
   (str "SELECT t.typname AS type, t.typcategory AS category"
-       " FROM pg_catalog.pg_type t"
-       " WHERE t.oid = ANY(?)"))
+       " FROM pg_catalog.pg_proc p "
+       "      JOIN LATERAL unnest(p.proargtypes) WITH ORDINALITY AS a(oid,nr) ON TRUE "
+       "      JOIN pg_catalog.pg_type t ON a.oid = t.oid "
+       "WHERE p.proname=?"
+       "ORDER BY a.nr ASC"))
 
 (defn enum-values [db enum-type-name]
   (into #{}

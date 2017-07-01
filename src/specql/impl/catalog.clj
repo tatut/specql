@@ -38,6 +38,15 @@
        "WHERE p.proname=?"
        "ORDER BY a.nr ASC"))
 
+(defn sproc-info [db sproc-name]
+  (jdbc/with-db-connection [db db]
+    (let [sproc (first (jdbc/query db [sproc-q sproc-name]))]
+      {:name sproc-name
+       :args (map (fn [name arg-info]
+                    (assoc arg-info :name name))
+                  (seq (.getArray (:argnames sproc)))
+                  (jdbc/query db [sproc-args-types-q sproc-name]))})))
+
 (defn enum-values [db enum-type-name]
   (into #{}
         (map :value)

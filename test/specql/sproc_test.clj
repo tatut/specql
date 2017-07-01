@@ -41,3 +41,7 @@
     (is (= #{{:percentage 66.67M :type "bug"}
              {:percentage 33.33M :type "feature"}}
            (raw-stats db)))))
+
+(println
+ (pr-str
+  (with-db #(jdbc/query db [@#'specql.impl.catalog/sproc-q "calculate-issuetype-stats"]))))

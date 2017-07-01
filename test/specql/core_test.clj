@@ -754,3 +754,20 @@
     (testing "Direction without column"
       (asserted #"direction specified without an order-by"
                 (titles #{::specql/order-direction :asc})))))
+
+(deftest limit
+  ;; Insert some test data
+  (dotimes [i 123]
+    (insert! db :issue/issue #:issue {:title (str "issue " i)
+                                      :status :issue.status/open
+                                      :type :feature}))
+
+  (let [issue-count #(count (fetch db :issue/issue #{:issue/id} {} %))]
+    (testing "limit returns correct number of rows"
+      (is (= 100
+             (issue-count {::specql/limit 100}))))
+    (testing "offset and limit work together"
+      (is (= 100
+             (issue-count {::specql/limit 100 ::specql/offset 10})))
+      (is (= 23
+             (issue-count {::specql/limit 42 ::specql/offset 100}))))))

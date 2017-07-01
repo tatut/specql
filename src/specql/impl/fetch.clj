@@ -254,6 +254,14 @@
              (:desc :descending) " DESC"
              (assert false (str "Unrecognized order direction: " direction)))))))
 
+(defn- limit-offset [{limit :specql.core/limit
+                      offset :specql.core/offset}]
+  (str
+   (when limit
+     (str " LIMIT " limit))
+   (when offset
+     (str " OFFSET " offset))))
+
 (defn fetch [db table columns where options]
   (assert-table table)
   (assert (and (set? columns)
@@ -293,7 +301,8 @@
                  " FROM " (sql-from table-info-registry table-alias)
                  (when-not (str/blank? where-clause)
                    (str " WHERE " where-clause))
-                 (order-by table-columns options))
+                 (order-by table-columns options)
+                 (limit-offset options))
         row (gensym "row")
         sql-and-parameters (into [sql] where-parameters)
 

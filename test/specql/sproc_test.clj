@@ -1,9 +1,9 @@
 (ns specql.sproc-test
   (:require  [clojure.test :as t :refer [deftest is testing]]
              [specql.embedded-postgres :refer [with-db datasource db]]
-             [specql.core-test] ;; tables are defined in core test
+             [specql.core-test :refer [define-db]] ;; tables are defined in core test
              [clojure.java.jdbc :as jdbc]
-             [specql.core :as specql :refer [insert!]]))
+             [specql.core :as specql :refer [insert! define-tables defsp]]))
 
 (t/use-fixtures :each with-db)
 
@@ -45,3 +45,15 @@
 (println
  (pr-str
   (with-db #(jdbc/query db [@#'specql.impl.catalog/sproc-q "calculate-issuetype-stats"]))))
+
+(comment
+  (jdbc/with-db-connection [db define-db]
+    (specql.impl.catalog/sproc-info db "calculate-issuetype-stats")))
+
+
+;; Define the user defined return type
+(define-tables define-db
+  ["issuetype-stats" :issue.stats/type-stats])
+
+;; defsp = short form of define-stored-procedures macro
+(defsp calculate-issuetype-stats define-db)

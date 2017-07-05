@@ -1,8 +1,29 @@
 (ns specql.impl.registry
-  "The runtime information registry about tables")
+  "The runtime information registry about tables"
+  (:require [clojure.spec.alpha :as s]
+            [clojure.string :as str]))
 
 ;; This contains the runtime information about tables
 (defonce table-info-registry (atom {}))
+
+(defn type-keyword-by-name
+  "Returns a namepaced type keyword for the given database type name.
+  The database type can be a user define table or type (registered with define-tables)
+  or a database specified type name (like 'text' or 'point').
+
+  If no type is found for the given name, returns nil."
+  ([type-name] (type-keyword-by-name @table-info-registry type-name))
+  ([table-info-registry type-name]
+   (let [type-name (if (str/starts-with? type-name "_")
+                     (subs type-name 1)
+                     type-name)]
+     (or (some (fn [[kw {name :name}]]
+                 (when (= name type-name)
+                   kw))
+               table-info-registry)
+         (let [dt (keyword "specql.data-types" type-name)]
+           (when (s/get-spec dt)
+             dt))))))
 
 (defn composite-type
   "Find user defined composite type from registry by name."

@@ -10,7 +10,8 @@
             [specql.impl.insert :as insert]
             [specql.impl.delete :as delete]
             [specql.impl.update :as update]
-            [specql.impl.registry :as registry]))
+            [specql.impl.registry :as registry]
+            [specql.impl.sproc :as sproc]))
 
 
 (defmacro define-tables
@@ -101,3 +102,16 @@
   "Returns a set containing all defined table keywords"
   []
   (registry/tables))
+
+
+;; Define stored procedure
+
+(defmacro define-stored-procedures [db & procedures]
+  `(sproc/define-stored-procedures
+     ~db
+     ~@procedures))
+
+(defmacro defsp [fn-name db & options-map]
+  `(sproc/define-stored-procedures
+     ~db
+     [~fn-name ~(first options-map)]))

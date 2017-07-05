@@ -1,6 +1,7 @@
 (ns specql.impl.catalog
   "Query the PostgreSQL catalog"
-  (:require [clojure.java.jdbc :as jdbc]))
+  (:require [clojure.java.jdbc :as jdbc]
+            [specql.impl.registry :as registry]))
 
 
 (def ^:private relkind-q "SELECT relkind FROM pg_catalog.pg_class WHERE relname=?")
@@ -25,9 +26,12 @@
 
 (def ^:private sproc-q
   (str "SELECT p.*, p.pronargs as argc, p.proargnames as argnames, "
-       "ret.typname AS return_type, ret.typcategory AS return_category"
+       "ret.typname AS return_type, ret.typcategory AS return_category, "
+       "p.proretset AS return_set,"
+       "d.description as comment "
        " FROM pg_catalog.pg_proc p "
        " JOIN pg_catalog.pg_type ret ON p.prorettype = ret.oid"
+       " LEFT JOIN pg_catalog.pg_description d ON p.oid = d.objoid "
        " WHERE p.proname = ?"))
 
 (def ^:private sproc-args-types-q
@@ -39,13 +43,21 @@
        "ORDER BY a.nr ASC"))
 
 (defn sproc-info [db sproc-name]
-  (jdbc/with-db-connection [db db]
-    (let [sproc (first (jdbc/query db [sproc-q sproc-name]))]
-      {:name sproc-name
-       :args (map (fn [name arg-info]
-                    (assoc arg-info :name name))
-                  (seq (.getArray (:argnames sproc)))
-                  (jdbc/query db [sproc-args-types-q sproc-name]))})))
+  (let [sproc (first (jdbc/query db [sproc-q sproc-name]))]
+    {:name sproc-name
+     :sproc sproc
+     :comment (:comment sproc)
+     :args (mapv (fn [name arg-info]
+                   (as-> arg-info arg
+                     (assoc arg :name name)
+                     (if (= "A" (:category arg))
+                       (assoc arg :element-type (registry/type-keyword-by-name (subs (:type arg) 1)))
+                       arg)))
+                 (seq (.getArray (:argnames sproc)))
+                 (jdbc/query db [sproc-args-types-q sproc-name]))
+     :returns {:type (:return_type sproc)
+               :category (:return_category sproc)
+               :single? (not (:return_set sproc))}}))
 
 (defn enum-values [db enum-type-name]
   (into #{}

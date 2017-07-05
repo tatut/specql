@@ -39,6 +39,18 @@
   columns of the nested table to retrieve.
   Where clause is a map of column keyword to value or comparison operator. See specql.op namespace.
 
+  An optional options map may be provided to alter the query behaviour.
+  Supported options are:
+    :specql.core/order-by   a column keyword in the queried table to order the results by
+    :specql.core/order-direction   sort direction, either :ascending (default) or :descending
+    :specql.core/limit      limit result set size to this many rows
+    :specql.core/offset     skip first N result set rows
+
+  Note about limit/offset use: limit and offset work at the result set level.
+  If the query has a has-many join, it will have possibly multiple rows for
+  each entry in the base table. SQL does not guarantee result ordering if an
+  order by is not used, so limit/offset will be inconsistent without ordering.
+
   Fetch returns a collection of maps.
 
   Example:
@@ -46,8 +58,10 @@
          {:employee/id (op/<= 2)})
   ;; => ({:employee/id 1 :employee/name \"Foo\"}
   ;;     {:employee/id 2 :employee/name \"Bar\"})"
-  [db table columns where]
-  (fetch/fetch db table columns where))
+  ([db table columns where]
+   (fetch db table columns where {}))
+  ([db table columns where options]
+   (fetch/fetch db table columns where options)))
 
 ;; FIXME: improve docstrings
 

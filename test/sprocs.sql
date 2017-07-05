@@ -31,3 +31,6 @@ BEGIN
   END LOOP;
 END;
 $$ LANGUAGE plpgsql;
+
+COMMENT ON FUNCTION "calculate-issuetype-stats" (statuses status[], containing TEXT)
+IS 'Calculate the percentages of issues for each type. Considers issues that have any of the given statuses and contain the given text.';

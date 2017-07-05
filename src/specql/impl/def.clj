@@ -143,12 +143,6 @@
               column))) %)))
    new-table-info))
 
-(defn- connect [db]
-  (try
-    (jdbc/get-connection db)
-    (catch Exception e
-      (assert false (str "Unable to establish database connection to: " (pr-str db)
-                         ".\n" (.getName (class e)) ": " (.getMessage e))))))
 
 (defn- merge-table-options [[table-name table-keyword & option-maps]]
   (let [merged-options (reduce merge option-maps)]

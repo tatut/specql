@@ -7,40 +7,58 @@
 
 (t/use-fixtures :each with-db)
 
+
+;; Define the user defined return type
+(define-tables define-db
+  ["issuetype-stats" :issue.stats/type-stats])
+
+;; defsp = short form of define-stored-procedures macro
+(defsp calculate-issuetype-stats define-db)
+
+(defsp myrange define-db)
+
 ;; Test baseline behaviour with raw SQL queries to the procedure
 
 (defn- raw-stats [db]
-  (set (jdbc/query db ["SELECT * FROM \"calculate-issuetype-stats\"('{\"open\"}'::status[], '')"])))
+  (jdbc/query db ["SELECT * FROM \"calculate-issuetype-stats\"('{\"open\"}'::status[], '')"]))
+
+(defn- stats [db]
+  (calculate-issuetype-stats db #{:issue.status/open} ""))
+
+(defn- check-stats [db expected-raw]
+  (let [r (raw-stats db)
+        s (stats db)
+        raw-vals (juxt (comp keyword :type) :percentage)
+        spec-vals (juxt :issue.stats/type :issue.stats/percentage)]
+    (is (= (set r) expected-raw))
+    (is (= (map raw-vals r)
+           (map spec-vals s)))))
 
 (deftest raw-sproc-calls
   (testing "Initially no issues, all types show zero percent"
-    (is (= #{{:percentage 0.0M :type "feature"}
-             {:percentage 0.0M :type "bug"}}
-           (raw-stats db))))
+    (check-stats db #{{:percentage 0.0M :type "feature"}
+                      {:percentage 0.0M :type "bug"}}))
 
   (testing "After inserting a bug, that type shows 100 percent"
     (insert! db :issue/issue {:issue/status :issue.status/open
                               :issue/type :bug
                               :issue/title "the first issue"})
-    (is (= #{{:percentage 100.00M :type "bug"}
-             {:percentage 0.00M :type "feature"}}
-           (raw-stats db))))
+    (check-stats db #{{:percentage 100.00M :type "bug"}
+                      {:percentage 0.00M :type "feature"}}))
 
   (testing "After inserting a feature, both are 50%"
     (insert! db :issue/issue {:issue/status :issue.status/open
                               :issue/type :feature
                               :issue/title "2nd issue"})
-    (is (= #{{:percentage 50.00M :type "bug"}
-             {:percentage 50.00M :type "feature"}}
-           (raw-stats db))))
+    (check-stats db #{{:percentage 50.00M :type "bug"}
+                      {:percentage 50.00M :type "feature"}}))
 
   (testing "Add one more bug"
     (insert! db :issue/issue {:issue/status :issue.status/open
                               :issue/type :bug
                               :issue/title "3rd issue"})
-    (is (= #{{:percentage 66.67M :type "bug"}
-             {:percentage 33.33M :type "feature"}}
-           (raw-stats db)))))
+    (check-stats db #{{:percentage 66.67M :type "bug"}
+                      {:percentage 33.33M :type "feature"}})))
 
 (println
  (pr-str
@@ -49,11 +67,3 @@
 (comment
   (jdbc/with-db-connection [db define-db]
     (specql.impl.catalog/sproc-info db "calculate-issuetype-stats")))
-
-
-;; Define the user defined return type
-(define-tables define-db
-  ["issuetype-stats" :issue.stats/type-stats])
-
-;; defsp = short form of define-stored-procedures macro
-(defsp calculate-issuetype-stats define-db)

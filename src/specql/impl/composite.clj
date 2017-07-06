@@ -224,11 +224,13 @@
                    (stringify table-info-registry col (get value kw))))
        ")"))
 
-(defn- transform [type value]
+(defn- transform [{category :category :as type} value]
   ;; Transform may be defined in the column or in a table :rel options
   (if-let [xf (or (::xf/transform type)
                   (::xf/transform (:rel type)))]
-    (xf/to-sql xf value)
+    (if (= "A" category)
+      (mapv (partial xf/to-sql xf) value)
+      (xf/to-sql xf value))
     value))
 
 (defn stringify
@@ -240,7 +242,8 @@
       (if (= "A" (:category type))
         (str "{"
              (str/join "," (map (partial stringify table-info-registry
-                                         (table-info-registry (:element-type type)))
+                                         (registry/type-by-name table-info-registry
+                                                                (:element-type type)))
                                 value))
              "}")
         (if (= :composite (:type type))

@@ -3,14 +3,16 @@
              [specql.embedded-postgres :refer [with-db datasource db]]
              [specql.core-test :refer [define-db]] ;; tables are defined in core test
              [clojure.java.jdbc :as jdbc]
-             [specql.core :as specql :refer [insert! define-tables defsp]]))
+             [specql.core :as specql :refer [insert! define-tables defsp]]
+             [specql.transform :as xf]))
 
 (t/use-fixtures :each with-db)
 
 
 ;; Define the user defined return type
 (define-tables define-db
-  ["issuetype-stats" :issue.stats/type-stats])
+  ["issuetype-stats" :issue.stats/type-stats
+   {:issue.stats/type (xf/transform (xf/to-keyword))}])
 
 ;; defsp = short form of define-stored-procedures macro
 (defsp calculate-issuetype-stats define-db)
@@ -34,7 +36,7 @@
     (is (= (map raw-vals r)
            (map spec-vals s)))))
 
-(deftest raw-sproc-calls
+(deftest calculate-issuetype-stats-calls
   (testing "Initially no issues, all types show zero percent"
     (check-stats db #{{:percentage 0.0M :type "feature"}
                       {:percentage 0.0M :type "bug"}}))
@@ -58,12 +60,20 @@
                               :issue/type :bug
                               :issue/title "3rd issue"})
     (check-stats db #{{:percentage 66.67M :type "bug"}
+                      {:percentage 33.33M :type "feature"}}))
+
+  (testing "Add issue in-progress"
+    (insert! db :issue/issue {:issue/status :issue.status/in-progress
+                              :issue/type :bug
+                              :issue/title "doesn't affect stats"})
+    (check-stats db #{{:percentage 66.67M :type "bug"}
                       {:percentage 33.33M :type "feature"}})))
 
-(println
- (pr-str
-  (with-db #(jdbc/query db [@#'specql.impl.catalog/sproc-q "calculate-issuetype-stats"]))))
-
-(comment
-  (jdbc/with-db-connection [db define-db]
-    (specql.impl.catalog/sproc-info db "calculate-issuetype-stats")))
+(deftest myrange-calls
+  (is (re-matches #".*successive integers.*"
+                  (:doc (meta #'myrange) ""))
+      "Docstring is valid")
+  (is (= [1 2 3 4 5]
+         (myrange db 1 6)))
+  (is (= 1000
+         (count (myrange db -500 500)))))

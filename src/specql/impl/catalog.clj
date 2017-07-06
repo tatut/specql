@@ -42,6 +42,11 @@
        "WHERE p.proname=?"
        "ORDER BY a.nr ASC"))
 
+(defn- with-element-type [type]
+  (if (= "A" (:category type))
+    (assoc type :element-type (subs (:type type) 1))
+    type))
+
 (defn sproc-info [db sproc-name]
   (let [sproc (first (jdbc/query db [sproc-q sproc-name]))]
     {:name sproc-name
@@ -50,14 +55,13 @@
      :args (mapv (fn [name arg-info]
                    (as-> arg-info arg
                      (assoc arg :name name)
-                     (if (= "A" (:category arg))
-                       (assoc arg :element-type (registry/type-keyword-by-name (subs (:type arg) 1)))
-                       arg)))
+                     (with-element-type arg)))
                  (seq (.getArray (:argnames sproc)))
                  (jdbc/query db [sproc-args-types-q sproc-name]))
-     :returns {:type (:return_type sproc)
-               :category (:return_category sproc)
-               :single? (not (:return_set sproc))}}))
+     :returns (with-element-type
+                {:type (:return_type sproc)
+                 :category (:return_category sproc)
+                 :single? (not (:return_set sproc))})}))
 
 (defn enum-values [db enum-type-name]
   (into #{}

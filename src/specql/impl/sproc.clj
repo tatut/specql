@@ -31,7 +31,7 @@
           r (gensym "result")]
       `(fn [~'row]
          (as-> {} ~'r
-           ~@(for [[kw {name :name xf ::xf/transform :as row}] cols
+           ~@(for [[kw {name :name xf ::xf/transform :as col}] cols
                    :let [resultset-kw (keyword name)]]
                (if xf
                  `(assoc ~'r ~kw (xf/from-sql ~xf (~resultset-kw ~'row)))
@@ -46,7 +46,6 @@
         tir-sym (gensym "tir")
         returns (:returns sproc-info)
         return-type-keyword (registry/type-keyword-by-name tir (:type returns))]
-    (println "SPROC ARGS:" (pr-str sproc-args))
     (assert (every? some? arg-type-keywords) "Unknown argument type (FIXME: better error)")
     (assert (some? return-type-keyword)
             (str "Unknown return type: " (:type returns) ". Call define-tables to define the type!"))

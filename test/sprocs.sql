@@ -34,3 +34,21 @@ $$ LANGUAGE plpgsql;
 
 COMMENT ON FUNCTION "calculate-issuetype-stats" (statuses status[], containing TEXT)
 IS 'Calculate the percentages of issues for each type. Considers issues that have any of the given statuses and contain the given text.';
+
+
+CREATE OR REPLACE FUNCTION myrange (from_ INT, to_ INT) RETURNS INT[] AS $$
+DECLARE
+  arr INT[];
+  i INT;
+BEGIN
+  i := from_;
+  LOOP
+    IF i = to_ THEN
+      EXIT;
+    END IF;
+    arr := arr || i;
+    i := i + 1;
+  END LOOP;
+  RETURN arr;
+END;
+$$ LANGUAGE plpgsql;

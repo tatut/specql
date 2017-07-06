@@ -15,10 +15,18 @@
   (run-statements db "test/database.sql" #";")
   (run-statements db "test/sprocs.sql" #"-#-"))
 
-(defonce db-provider (PreparedDbProvider/forPreparer
-                      (reify DatabasePreparer
-                        (prepare [this ds]
-                          (create-test-database {:datasource ds})))))
+(defn- provider []
+  (PreparedDbProvider/forPreparer
+   (reify DatabasePreparer
+     (prepare [this ds]
+       (create-test-database {:datasource ds})))))
+
+(defonce db-provider (provider))
+
+(defn reset-db []
+  (alter-var-root #'db-provider
+                  (fn [_]
+                    (provider))))
 
 (defn datasource []
   {:datasource (.createDataSource db-provider)})

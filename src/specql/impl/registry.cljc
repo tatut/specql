@@ -25,6 +25,12 @@
            (when (s/get-spec dt)
              dt))))))
 
+(defn type-by-name
+  ([type-name] (type-by-name @table-info-registry type-name))
+  ([table-info-registry type-name]
+   (get table-info-registry
+        (type-keyword-by-name table-info-registry type-name))))
+
 (defn composite-type
   "Find user defined composite type from registry by name."
   ([name] (composite-type @table-info-registry name))

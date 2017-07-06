@@ -15,7 +15,11 @@ DECLARE
   total INTEGER;
   percentage NUMERIC(5,2);
 BEGIN
-  SELECT INTO total COUNT(*) FROM issue;
+  SELECT INTO total COUNT(*)
+    FROM issue i
+   WHERE i.status = ANY(statuses)
+     AND i.title LIKE ('%'||containing||'%');
+
   FOR r IN SELECT t.type, COUNT(i.id) FILTER (WHERE i.status = ANY(statuses)
                                                 AND i.title LIKE ('%'||containing||'%')) as issues
              FROM (SELECT unnest(enum_range(NULL::issuetype)) AS type) t
@@ -52,3 +56,6 @@ BEGIN
   RETURN arr;
 END;
 $$ LANGUAGE plpgsql;
+
+COMMENT ON FUNCTION myrange (from_ INT, to_ INT)
+IS 'Returns an array of successive integers in the range from_ (inclusive) -- to_ (exclusive).'

@@ -10,13 +10,15 @@
             [clojure.string :as str]
             [clojure.java.jdbc :as jdbc]))
 
-(defn- return-handler [tir {:keys [type category] :as returns} kw]
+(defn- return-handler [tir tir-sym {:keys [type category] :as returns} kw]
   (cond
 
     ;; An array,
     (= "A" category)
     `(fn [row#]
-       (composite/parse tir ~returns (val (first row#))))
+       (let [s# (str (val (first row#)))]
+         (when-not (str/blank? s#)
+           (composite/parse ~tir-sym ~returns s#))))
 
     ;; A db specified type, take the value as is
     (db-type? kw)
@@ -29,10 +31,11 @@
           r (gensym "result")]
       `(fn [~'row]
          (as-> {} ~'r
-           ~@(for [[kw {:keys [name] :as row}] cols
+           ~@(for [[kw {name :name xf ::xf/transform :as row}] cols
                    :let [resultset-kw (keyword name)]]
-               ;; PENDING: apply column transforms
-               `(assoc ~'r ~kw (~resultset-kw ~'row))))))))
+               (if xf
+                 `(assoc ~'r ~kw (xf/from-sql ~xf (~resultset-kw ~'row)))
+                 `(assoc ~'r ~kw (~resultset-kw ~'row)))))))))
 
 (defn- sproc [name sproc-info]
   (let [db-sym (gensym "db")
@@ -43,6 +46,7 @@
         tir-sym (gensym "tir")
         returns (:returns sproc-info)
         return-type-keyword (registry/type-keyword-by-name tir (:type returns))]
+    (println "SPROC ARGS:" (pr-str sproc-args))
     (assert (every? some? arg-type-keywords) "Unknown argument type (FIXME: better error)")
     (assert (some? return-type-keyword)
             (str "Unknown return type: " (:type returns) ". Call define-tables to define the type!"))
@@ -77,7 +81,7 @@
            ;;(println "SQL: " (pr-str sql-and-args#))
            (jdbc/with-db-transaction [db# ~db-sym]
              (~(if (:single? returns) first doall)
-              (map ~(return-handler tir returns return-type-keyword)
+              (map ~(return-handler tir tir-sym returns return-type-keyword)
                    (jdbc/query db# sql-and-args#)))))))))
 
 (defmacro define-stored-procedures [db & procedures]

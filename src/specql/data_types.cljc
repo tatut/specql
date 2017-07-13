@@ -7,6 +7,7 @@
 
 (s/def ::int2 (s/int-in -32768 32767))
 (s/def ::int4 (s/int-in -2147483648 2147483647))
+(s/def ::uint4 (s/int-in 0 4294967295))
 (s/def ::int8 (s/int-in -9223372036854775808 9223372036854775807))
 (s/def ::float8 double?)
 (s/def ::varchar string?)
@@ -25,6 +26,7 @@
 (s/def ::text string?)
 (s/def ::bpchar string?)
 (s/def ::bool boolean?)
+(s/def ::oid ::uint4)
 
 (s/def ::uuid uuid?)
 (s/def ::bytea #?(:clj bytes?

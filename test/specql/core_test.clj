@@ -29,14 +29,26 @@
                  :department/departments
                  :department/id)}]
   ["company" :company/companies]
-  ["department" :department/departments {:department/employees
-                                         (rel/has-many :department/id
-                                                       :employee/employees
-                                                       :employee/department)
-                                         :department/company
-                                         (rel/has-one :department/company-id
-                                                      :company/companies
-                                                      :company/id)}]
+  ["project" :project/projects
+   {:project/deliverables
+    (rel/has-many :project/id
+                  :deliverable/deliverables
+                  :deliverable/project-id)}]
+  ["deliverable" :deliverable/deliverables]
+  ["department"
+   :department/departments
+   {:department/employees
+    (rel/has-many :department/id
+                  :employee/employees
+                  :employee/department-id)
+    :department/company
+    (rel/has-one :department/company-id
+                 :company/companies
+                 :company/id)
+    :department/projects
+    (rel/has-many :department/id
+                  :project/projects
+                  :project/department-id)}]
   ["quark" :enum/quark] ;; an enum type
   ["typetest" :typetest/table]
 
@@ -725,3 +737,65 @@
                         :type :feature})
 
       (is (= (count (fetch db :issue/issue #{:issue/type} {})) (inc count-before))))))
+
+
+;;; JOIN test
+;;
+;;                     +------------+
+;;                     | DEPARTMENT |
+;;  +---------+        +--+------+--+    +----------+
+;;  |PROJECT 1|---+       |      |    +--|EMPLOYEE 1|
+;;  +---------+   |       |      +----+  +----------+
+;;                +-------+      |
+;;  +---------+   |              |      +----------+
+;;  |PROJET  2|---+              +------+EMPLOYEE 2|
+;;  +---------+                  |      +----------+
+;;                               |
+;;                               |      +----------+
+;;                               +------|EMPLOYEE N|
+;;                                      +----------+
+;;
+;; A single department can have multiple employees.
+;; And also multiple meetings.
+;;
+;; This test checks that we can fetch multiple collections at the same
+;; level of nesting. We fetch departments and check that it has the correct
+;; number of meeting and employee items.
+;;
+
+(deftest multiple-collections
+  (doseq [[dep name deliverables]
+          [[1 "Atom re-arranger" []]
+           [1 "Indestructo steel band" ["feasability study"
+                                        "steel manufacturing process"]]
+           [1 "Ultimatum dispatcher" []]
+           [2 "Super speed vitamin ad campaign"
+            ["determine target demographic"
+             "create script"
+             "find actors"
+             "buy air time"]]]]
+    (let [p (insert! db :project/projects #:project {:department-id dep :name name})]
+      (doseq [d deliverables]
+        (insert! db :deliverable/deliverables
+                 {:deliverable/project-id (:project/id p)
+                  :deliverable/name d}))))
+  (is (= #{#:department {:id 1 :name "R&D"
+                         :employees #{#:employee {:id 1 :name "Wile E. Coyote"}
+                                      #:employee {:id 2 :name "Max Syöttöpaine"}
+                                      #:employee {:id 3 :name "Foo Barsky"}}
+                         :projects #{{:project/name "Atom re-arranger"}
+                                     {:project/name "Indestructo steel band"}
+                                     {:project/name "Ultimatum dispatcher"}}}
+           #:department {:id 2 :name "Marketing"
+                         :projects #{{:project/name "Super speed vitamin ad campaign"}}
+                         :employees #{}}}
+         (let [result (fetch db :department/departments
+                             #{:department/id
+                               :department/name
+                               [:department/employees #{:employee/id :employee/name}]
+                               [:department/projects
+                                #{:project/name
+                                  [:project/deliverables #{:deliverable/name}]}]}
+                             {})]
+           (println "SQL: " (:specql.impl.fetch/sql (meta result)))
+           (set result)))))

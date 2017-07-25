@@ -113,70 +113,11 @@
           (when join-cond
             (str " ON " join-cond))))))
 
-(defn- vectorize-path [row path]
-  (when row
-    (if (empty? path)
-      (cond
-        (nil? row) []
-        (vector? row) row
-        :else [row])
-      (do
-        (println "update " row " at " (first path))
-        (update row (first path)
-                (fn [row]
-                  (println "VECTORIZE ROW: " row ", PATH: " path)
-                  (if (vector? row)
-                    (mapv #(vectorize-path % (rest path)) row)
-                    (vectorize-path row (rest path)))))))))
 
 
-
-;; For ALL joins (not just has-many joins) add the *this table column* field for the left
-;; side.
-;;
-;; Use the ids instead of ctids to do the joins.
-;; Use NULL values in those ids to detect if something is missing
-;;
-
-(defn- group-collection [results group-kw path]
-  (mapv (fn [[group-key group]]
-          (let [result (first group)
-                items (into [] (keep #(get-in % path) group))]
-            (if (not (empty? items))
-              (assoc-in result path items)
-
-              ;; Remove key for empty items
-              (if (> (count path) 1)
-                (update-in result (butlast path) dissoc (last path))
-                (dissoc result (first path))))))
-        (group-by (comp group-kw ::group meta) results)))
-
-(defn- group-collections [has-many-join-cols results]
-  ;; Take all ctids of joins that have the keyword in path (is a prefix)
-  ;; grouping function is a select-keys of all relevant ctids at this level
-  ;; a deeper nested join will have more ctids
-
-  (reduce (fn [results [result-kw [_ path] :as has-many-join-col]]
-            (let [path-parts (into #{} path)
-
-                  ;; Take all ctids of tables that appear in the path
-                  ctids (into #{}
-                              (keep (fn [[ctid [_ join-path]]]
-                                      (when (some path-parts join-path)
-                                        ctid)))
-                              has-many-join-cols)]
-
-              ;; Group results by selecting the ctid keys
-              (group-collection results #(select-keys % ctids) path)))
-
-          results
-
-          ;; Sort by path depth (join deeper collections first)
-          (reverse
-           (sort-by (fn [[_ [_ path] :as has-many-join-col]]
-                      (count path))
-                    has-many-join-cols))))
-
+(defn- has-many-joins? [table-alias]
+  (some #(nth % 5) ;; the many-to-many collection-path
+        (rest table-alias)))
 
 (defn- has-many-join-columns
   "If there are many-to-many joins, add postgres physical row identity field to the
@@ -184,6 +125,8 @@
   The resultset processing will use the ctid fields to detect same rows and
   add nested maps to the correct sequences."
   [table-alias alias-fn]
+  (doseq [t table-alias]
+    (println "TABLE-ALIAS: " (pr-str t)))
   (keep (fn [right]
           (let [left-table-kw (nth right 6)
                 left (or (some (fn [[tbl :as table]]
@@ -197,6 +140,21 @@
                 has-many-collection]])))
         (rest table-alias)))
 
+(defn- add-physical-row-ids
+  "Add the physical table row id for each table we are fetching. This is needed for grouping
+  collections."
+  [table-alias alias-fn]
+  (mapv (fn [[_ table-alias join-type _ _ has-many-collection _ :as a]]
+          {:column-alias (keyword (alias-fn :ctid))
+           :column-sql (str "CAST(\"" table-alias "\".ctid AS varchar)")
+           :collection-path (when (= join-type :left-join)
+                              has-many-collection)})
+        table-alias))
+
+
+;; HAS MANY JOINS COULD BE MADE WITH array_agg(ROW(...)) and read in as composites
+;; QUERIES
+;; (jdbc/query db1 ["SELECT d.id, d.name, (SELECT array_agg(ROW(e.id, e.name)) FROM employee e WHERE e.department=d.id) as emps, (SELECT array_agg(ROW(p.id,p.name)) FROM project p WHERE p.\"department-id\"=d.id) AS projs FROM department d"])
 
 
 (defn- post-process-arrays-fn [path->array-type]
@@ -239,6 +197,59 @@
 
 
 
+#_(def data [(with-meta {:foo "bar"} {::group {:cti1 "11" :cti2 "22"}})
+             (with-meta {:foo "baz"} {::group {:cti1 "11" :cti2 "23"}})
+             (with-meta {:foo "sky"} {::group {:cti1 "12" :cti2 "24"}})])
+
+(defn- group-nested-collections [key-ctid results]
+  "In a sequence of correlated rows (results), find all unique nested items by ctid.
+  The key-ctid is a map of keyword in the resulting map and a ctid for unique rows."
+  (println "GROUP NESTED: " (pr-str key-ctid)
+           (pr-str results))
+
+  ;; DO ONLY IF key count is 1
+  ;; in the below fixme recurse to all keys that begin with the current key
+  ;;
+  (reduce (fn [result-map [ctid key]]
+            (if (not= 1 (count key))
+              ;; Only do joining for this level (keypath length is one)
+              result-map
+              (assoc-in result-map
+                        key (into #{}
+                                  (comp
+                                   ;; if key is not nil
+                                   (keep (fn [[k v]]
+                                           (when k v)))
+                                   ;; take the first value in the list
+                                   ;; FIXME: group nested collections from those as well
+                                   (map (comp #(get-in % key) first)))
+
+                                  (group-by #(get (::group (meta %)) ctid) results)))))
+          {}
+          key-ctid))
+
+(defn- group-collections-by-physical-row-id [cols results]
+  (let [kw (:column-alias (first cols))
+        nested-collections (into {}
+                                 (comp
+                                  (filter #(some? (:collection-path %)))
+                                  (map (juxt :column-alias :collection-path)))
+                                 cols)
+        helper (fn helper [results]
+                 (when-not (empty? results)
+                   (let [ctid #(get (::group (meta %)) kw)
+                         first-ctid (ctid (first results))
+                         same-ctid? #(= first-ctid (ctid %))
+                         [rows results] (split-with same-ctid? results)]
+                     ;; FIXME: group the collections
+                     (println "GROUP WITH " first-ctid " HAS " (count rows))
+                     (doseq [r rows]
+                       (println "ROW: " (pr-str r)))
+                     (cons (merge (first rows)
+                                  (group-nested-collections nested-collections rows))
+                           (helper results)))))]
+    (lazy-seq (helper results))))
+
 (defn fetch [db table columns where]
   (assert-table table)
   (assert (and (set? columns)
@@ -257,27 +268,38 @@
                      (for [[table alias _ _ columns] table-alias]
                        (fetch-columns table-info-registry table alias alias-fn columns)))
 
-        has-many-join-cols (has-many-join-columns table-alias alias-fn)
+        physical-row-id-cols (add-physical-row-ids table-alias alias-fn)
         [group-fn process-collections]
-        (if (empty? has-many-join-cols)
+        (if-not (has-many-joins? table-alias)
           ;; No has-many joins, don't do collection processing
           [nil identity]
 
           ;; Create a function to add rows to collections
-          [(let [join-keys (into #{} (map first has-many-join-cols))]
-             #(select-keys % join-keys))
+          [(let [ctid-keys (into #{} (map :column-alias) physical-row-id-cols)]
+             #(select-keys % ctid-keys))
            (fn [results]
-             (group-collections has-many-join-cols results))])
+             (group-collections-by-physical-row-id physical-row-id-cols results))])
 
         path->table (path->table-mapping table-alias)
         [where-clause where-parameters]
         (where/sql-where table-info-registry path->table where)
 
-        all-cols (into cols has-many-join-cols)
+        all-cols (into cols
+                       (map (fn [{:keys [column-alias column-sql]}]
+                              [column-alias [column-sql]]))
+                       physical-row-id-cols)
         sql (str "SELECT " (sql-columns-list all-cols)
                  " FROM " (sql-from table-info-registry table-alias)
                  (when-not (str/blank? where-clause)
-                   (str " WHERE " where-clause)))
+                   (str " WHERE " where-clause))
+
+                 ;; Order by physical row ids so that our nested collections
+                 ;; stay in order.
+                 ;;
+                 ;; PENDING: how should user-defined sort order be combined
+                 ;; with the need to keep results in ctid order.
+                 " ORDER BY " (str/join ", " (map (comp name :column-alias)
+                                                  physical-row-id-cols)))
         row (gensym "row")
         sql-and-parameters (into [sql] where-parameters)
 
@@ -292,7 +314,7 @@
                               (comp (post-process-arrays-fn array-paths)
                                     process-collections))]
 
-    ;;(println "SQL: " (pr-str sql-and-parameters))
+    (println "SQL: " (pr-str sql-and-parameters))
 
     ;; Post process: parse arrays after joined collections
     ;; have been processed. So that we don't unnecessarily parse
@@ -325,5 +347,4 @@
 
           ;; Query the generated SQL with the where map arguments
           (jdbc/query db sql-and-parameters)))
-        {::has-many-join-cols has-many-join-cols
-         ::sql sql-and-parameters}))))
+        {::sql sql-and-parameters}))))

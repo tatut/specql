@@ -18,6 +18,17 @@ CREATE TABLE department (
   name varchar
 );
 
+CREATE TABLE project (
+  id serial primary key,
+  "department-id" integer REFERENCES department (id),
+  name text
+  -- this table is just for testing joins
+);
+
+CREATE TABLE deliverable (
+  "project-id" integer REFERENCES project (id),
+  name text
+);
 
 CREATE TABLE employee (
   id serial primary key,

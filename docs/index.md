@@ -276,3 +276,38 @@ fields are left unchanged.
 	 {:order/customer-id 42})
 ;; => {:order/id 1 :order/state "shipped"}
 ```
+
+## Stored procedures
+
+Specql also provides support for callling stored procedures as functions.
+Stored procedures are defined with the `defsp` and look like regular functions.
+
+The return value and the parameters are handled just like when querying and any
+user defined types must be defined with `define-tables` before defining the
+stored procedure.
+
+For example given the following SQL stored procedure definition:
+```
+CREATE FUNCTION myrange (from_ INT, to_ INT) RETURNS INT[] AS $$
+ -- body elided for brevity, see sprocs.sql in tests
+$$ LANGUAGE plpgsql;
+```
+
+The function can be defined and called as:
+```
+(defsp myrange define-db)
+
+(meta #'myrange)
+;; => {:arglists ([db17659 from_ to_]),
+;;     :doc
+;;     "Returns an array of successive integers in the range from_ (inclusive) -- to_ (exclusive).",
+;;     ...}
+
+
+(myrange db 9 17)
+;; => [9 10 11 12 13 14 15 16]
+
+``
+
+The comment (if any) placed on the stored procedure is taken as the docstring of the
+function.

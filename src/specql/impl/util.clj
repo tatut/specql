@@ -3,7 +3,8 @@
             [specql.impl.registry :as registry]
             [clojure.string :as str]
             [specql.transform :as xf]
-            [specql.impl.composite :as composite]))
+            [specql.impl.composite :as composite]
+            [clojure.java.jdbc :as jdbc]))
 
 (defn assert-spec
   "Unconditionally assert that value is valid for spec. Returns value."
@@ -138,3 +139,10 @@
                        (conj value-names "?")
                        (conj value-parameters value)
                        columns)))))))))
+
+(defn connect [db]
+  (try
+    (jdbc/get-connection db)
+    (catch Exception e
+      (assert false (str "Unable to establish database connection to: " (pr-str db)
+                         ".\n" (.getName (class e)) ": " (.getMessage e))))))

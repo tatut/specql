@@ -47,6 +47,11 @@ See the [docs](https://tatut.github.io/specql) for more examples.
 
 # Changes
 
+### 0.7.0-alpha1
+
+* Support stored procedures as functions
+* Support order, limit and offset in query parameters
+
 ### 0.6
 
 * Support custom column transformations (eg. db enums to keywords)

@@ -1,6 +1,6 @@
 (ns specql.core-test
   (:require [specql.core :refer [define-tables fetch insert! delete! update! upsert!
-                                 columns tables]]
+                                 columns tables] :as specql]
             [specql.op :as op]
             [specql.rel :as rel]
             [specql.transform :as xf]
@@ -725,3 +725,49 @@
                         :type :feature})
 
       (is (= (count (fetch db :issue/issue #{:issue/type} {})) (inc count-before))))))
+
+(deftest order-by
+  ;; Insert some data to sort
+  (doseq [issue ["quux" "aaa" "foo" "bbb"]]
+    (insert! db :issue/issue
+             #:issue {:title issue :status :issue.status/open
+                      :type :feature}))
+  (let [titles #(map :issue/title (fetch db :issue/issue #{:issue/title} {} %))]
+    (testing "Order by works"
+      (testing "order by column in the result"
+        (is (= (list "aaa" "bbb" "foo" "quux")
+               (titles {::specql/order-by :issue/title})
+               (titles {::specql/order-by :issue/title
+                        ::specql/order-direction :ascending})
+               (reverse
+                (titles {::specql/order-by :issue/title
+                         ::specql/order-direction :descending})))))
+      (testing "order by column not in the result"
+        (is (= (list "quux" "aaa" "foo" "bbb")
+               (titles {::specql/order-by :issue/id})
+               (reverse
+                (titles {::specql/order-by :issue/id
+                         ::specql/order-direction :desc}))))))
+    (testing "Unknown column throws error"
+      (asserted #"Unknown order column: :issue/no-such-column"
+                (titles {::specql/order-by :issue/no-such-column})))
+    (testing "Direction without column"
+      (asserted #"direction specified without an order-by"
+                (titles #{::specql/order-direction :asc})))))
+
+(deftest limit
+  ;; Insert some test data
+  (dotimes [i 123]
+    (insert! db :issue/issue #:issue {:title (str "issue " i)
+                                      :status :issue.status/open
+                                      :type :feature}))
+
+  (let [issue-count #(count (fetch db :issue/issue #{:issue/id} {} %))]
+    (testing "limit returns correct number of rows"
+      (is (= 100
+             (issue-count {::specql/limit 100}))))
+    (testing "offset and limit work together"
+      (is (= 100
+             (issue-count {::specql/limit 100 ::specql/offset 10})))
+      (is (= 23
+             (issue-count {::specql/limit 42 ::specql/offset 100}))))))

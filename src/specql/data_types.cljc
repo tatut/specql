@@ -1,4 +1,5 @@
 (ns specql.data-types
+  "Defines specs for PostgreSQL database defined types."
   (:require [clojure.spec.alpha :as s]))
 
 #?(:clj
@@ -45,3 +46,17 @@
 ;; FIXME: support more postgres types
 #_(remove #(or (str/starts-with? % "pg_") (str/starts-with? % "_"))
         (map :typname (jdbc/query db [ "SELECT distinct(typname) from pg_type"])))
+
+
+(def db-types
+  #{::int2 ::int4 ::int8 ::float8 ::numeric
+    ::varchar ::text ::bpchar
+    ::date ::timestamp ::time
+    ::bool
+    ::uuid
+    ::bytea
+    ::point ::geometry
+    ::jsonb})
+
+(defn db-type? [type]
+  (contains? db-types type))

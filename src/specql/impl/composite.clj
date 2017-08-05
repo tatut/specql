@@ -3,7 +3,8 @@
   (:require [clojure.java.io :as io]
             [clojure.string :as str]
             [specql.data-types :as d]
-            [specql.impl.registry :as registry])
+            [specql.impl.registry :as registry]
+            [specql.transform :as xf])
   (:import (org.postgresql.util PGtokenizer)
            (java.time LocalTime)))
 
@@ -223,18 +224,28 @@
                    (stringify table-info-registry col (get value kw))))
        ")"))
 
+(defn- transform [{category :category :as type} value]
+  ;; Transform may be defined in the column or in a table :rel options
+  (if-let [xf (or (::xf/transform type)
+                  (::xf/transform (:rel type)))]
+    (if (= "A" category)
+      (mapv (partial xf/to-sql xf) value)
+      (xf/to-sql xf value))
+    value))
+
 (defn stringify
   ([table-info-registry type value]
    (stringify table-info-registry type value false))
   ([table-info-registry type value top-level?]
-   ;;(println "STRINGIFY: " (pr-str type) " VALUAE " (pr-str value))
-   ((if top-level? identity pg-quote)
-    (if (= "A" (:category type))
-      (str "{"
-           (str/join "," (map (partial stringify table-info-registry
-                                       (table-info-registry (:element-type type)))
-                              value))
-           "}")
-      (if (= :composite (:type type))
-        (stringify-composite table-info-registry type value)
-        (stringify-value type value))))))
+   (let [value (transform type value)]
+     ((if top-level? identity pg-quote)
+      (if (= "A" (:category type))
+        (str "{"
+             (str/join "," (map (partial stringify table-info-registry
+                                         (registry/type-by-name table-info-registry
+                                                                (:element-type type)))
+                                value))
+             "}")
+        (if (= :composite (:type type))
+          (stringify-composite table-info-registry type value)
+          (stringify-value type value)))))))

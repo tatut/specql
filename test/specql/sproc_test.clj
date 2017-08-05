@@ -19,6 +19,8 @@
 
 (defsp myrange define-db)
 
+(defsp my-range-with-name define-db {::specql/name "myrange"})
+
 ;; Test baseline behaviour with raw SQL queries to the procedure
 
 (defn- raw-stats [db]
@@ -74,6 +76,20 @@
                   (:doc (meta #'myrange) ""))
       "Docstring is valid")
   (is (= [1 2 3 4 5]
-         (myrange db 1 6)))
+         (myrange db 1 6)
+         (my-range-with-name db 1 6)))
   (is (= 1000
-         (count (myrange db -500 500)))))
+         (count (myrange db -500 500))
+         (count (my-range-with-name db -500 500)))))
+
+(def test-ns *ns*)
+
+(deftest sp-with-wrong-name
+  (is (thrown-with-msg?
+       AssertionError #"No stored procedure found for name.*Hint:"
+       (binding [*ns* test-ns]
+         (eval '(defsp foobar define-db)))))
+  (is (thrown-with-msg?
+       AssertionError #".*No stored procedure found for name 'hep'."
+       (binding [*ns* test-ns]
+         (eval '(defsp foobar define-db {:specql.core/name "hep"}))))))

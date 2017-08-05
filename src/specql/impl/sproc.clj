@@ -88,10 +88,16 @@
     (let [db {:connection con}]
       `(do ~@(doall
               (for [[fn-name options] procedures
-                    :let [info (catalog/sproc-info db
-                                                   ;; FIXME: name or sproc name
-                                                   (name fn-name))]]
-                ;; TODO:
-                ;; - resolve all arg specs to keywords (verify that they have been defined
-                ;; before the sproc is being defined)
-                (sproc fn-name info)))))))
+                    :let [sp-name (or (:specql.core/name options)
+                                      (name fn-name))
+                          info (catalog/sproc-info db
+                                                   (or (:specql.core/name options)
+                                                       (name fn-name)))]]
+                (do
+                  (assert info (str "No stored procedure found for name '" sp-name "'."
+                                    (when-not (:specql.core/name options)
+                                      " Hint: add :specql.core/name option if the procedure name is different from the var name.")))
+                  ;; TODO:
+                  ;; - resolve all arg specs to keywords (verify that they have been defined
+                  ;; before the sproc is being defined)
+                  (sproc fn-name info))))))))

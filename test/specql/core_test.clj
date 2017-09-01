@@ -32,7 +32,7 @@
   ["department" :department/departments {:department/employees
                                          (rel/has-many :department/id
                                                        :employee/employees
-                                                       :employee/department)
+                                                       :employee/department-id)
                                          :department/company
                                          (rel/has-one :department/company-id
                                                       :company/companies

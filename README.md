@@ -12,7 +12,7 @@ You can then query for rows by giving a table, the keys to return and a map of k
 # intro talk
 
 For a quick intro, see my talk about specql at ClojuTRE 2017
-  <iframe width="560" height="315" src="https://www.youtube.com/embed/qEXNyZ5FJN4" frameborder="0" allowfullscreen></iframe>
+[Scrap your query boilerplate with specql](https://www.youtube.com/embed/qEXNyZ5FJN4)
 
 # usage
 

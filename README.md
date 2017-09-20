@@ -51,6 +51,10 @@ See the [docs](https://tatut.github.io/specql) for more examples.
 
 # Changes
 
+### 0.7.0-alpha2
+
+* Fixed issue with `ROW(?,...)::typename` inserts with complex composites
+
 ### 0.7.0-alpha1
 
 * Support stored procedures as functions

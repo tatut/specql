@@ -9,6 +9,10 @@ specql introspects your database at compile time and generates clojure.spec defi
 and all the columns.
 You can then query for rows by giving a table, the keys to return and a map of keys to match against.
 
+# intro talk
+
+For a quick intro, see my talk about specql at ClojuTRE 2017
+[Scrap your query boilerplate with specql](https://youtu.be/qEXNyZ5FJN4)
 
 # usage
 

@@ -217,7 +217,6 @@
 
 (defn stringify-composite
   [table-info-registry {columns :columns :as type} value]
-  ;;(println "STRINGIFY COMPOSITE " (pr-str type))
   (str "("
        (str/join ","
                  (for [[kw col] (sort-by (comp :number second) columns)]

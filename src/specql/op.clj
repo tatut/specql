@@ -11,6 +11,9 @@
   introspected information about the column, like its type and possible
   transformation to apply."))
 
+(defn operator? [x]
+  (satisfies? Op x))
+
 (defn- expand-sql-template [sql-template val arg param]
   (for [s sql-template]
     (case s

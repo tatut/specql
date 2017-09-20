@@ -44,7 +44,7 @@
                    (when cols
                      (str "RETURNING " (sql-columns-list cols))))
           sql-and-params (into [sql] value-parameters)]
-      ;(println "SQL: " (pr-str sql-and-params))
+      (println "SQL: " (pr-str sql-and-params))
       (if (empty? primary-key-columns)
         (do (jdbc/execute! db sql-and-params)
             record)

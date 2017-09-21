@@ -780,9 +780,13 @@
   ["outertable" ::outertable])
 
 (deftest insert-and-fetch-outertable
-  (is (contains?
-       (insert! db ::outertable
-                {::outercomposite {::innerc {::inners [{::foo "bar"}
-                                                       {::foo "baz"}]}}})
-       ::id))
-  (println (fetch db ::outertable #{::id ::outercomposite} {})))
+  (let [row {::outercomposite {::innerc {::inners [{::foo "bar"}
+                                                   {::foo "baz"}]}}}]
+    (is (contains?
+         (insert! db ::outertable row)
+         ::id))
+
+    (is (= row
+           (dissoc (first
+                    (fetch db ::outertable #{::id ::outercomposite} {}))
+                   ::id)))))

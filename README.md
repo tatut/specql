@@ -51,7 +51,8 @@ See the [docs](https://tatut.github.io/specql) for more examples.
 
 # Changes
 
-### 0.7.0-alpha2
+
+### 0.7.0-alpha2 and -alpha3
 
 * Fixed issue with `ROW(?,...)::typename` inserts with complex composites
 

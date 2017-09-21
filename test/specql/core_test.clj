@@ -771,3 +771,18 @@
              (issue-count {::specql/limit 100 ::specql/offset 10})))
       (is (= 23
              (issue-count {::specql/limit 42 ::specql/offset 100}))))))
+
+
+(define-tables define-db
+  ["inner2" ::inner2]
+  ["inner1" ::inner1]
+  ["outerc" ::outer]
+  ["outertable" ::outertable])
+
+(deftest insert-and-fetch-outertable
+  (is (contains?
+       (insert! db ::outertable
+                {::outercomposite {::innerc {::inners [{::foo "bar"}
+                                                       {::foo "baz"}]}}})
+       ::id))
+  (println (fetch db ::outertable #{::id ::outercomposite} {})))

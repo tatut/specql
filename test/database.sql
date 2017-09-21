@@ -123,7 +123,24 @@ VALUES ('Fake News Quarterly',
 	 ROW('Henna Lindberg', ROW('Kujakuja 5','4242','FI')::address)::recipient
         ]::recipient[]);
 
+--- complex composite
 
+CREATE TYPE inner2 AS (
+  foo TEXT
+);
+
+CREATE TYPE inner1 AS (
+  inners inner2[]
+);
+
+CREATE TYPE outerc AS (
+  innerc inner1
+);
+
+CREATE TABLE outertable (
+  id SERIAL PRIMARY KEY,
+  outercomposite outerc
+);
 
 -- Test name/type clashes
 

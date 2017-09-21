@@ -238,13 +238,25 @@
   ([table-info-registry type value top-level?]
    (let [value (transform type value)]
      ((if top-level? identity pg-quote)
-      (if (= "A" (:category type))
-        (str "{"
-             (str/join "," (map (partial stringify table-info-registry
-                                         (registry/type-by-name table-info-registry
-                                                                (:element-type type)))
-                                value))
-             "}")
-        (if (= :composite (:type type))
-          (stringify-composite table-info-registry type value)
-          (stringify-value type value)))))))
+      (cond
+        (= "A" (:category type))
+        (let [element-type-name (:element-type type)
+              element-type (if (keyword? element-type-name)
+                             (table-info-registry element-type-name)
+                             (registry/type-by-name table-info-registry element-type-name))
+              stringify-element-type (partial stringify table-info-registry element-type)]
+          (str "{" (str/join "," (map stringify-element-type value)) "}"))
+
+        (= :composite (:type type))
+        (stringify-composite table-info-registry type value)
+
+        ;; Inner level composite
+        (= "C" (:category type))
+        (let [composite-type-kw (registry/composite-type table-info-registry (:type type))
+              composite-type (table-info-registry composite-type-kw)]
+          (stringify-composite table-info-registry
+                               composite-type
+                               value))
+
+        :default
+        (stringify-value type value))))))

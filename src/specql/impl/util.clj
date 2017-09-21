@@ -48,6 +48,10 @@
              composite-type-kw (registry/composite-type (:type col))]
          (assert name (str "Unknown column " column-kw " for table " table))
          (if composite-type-kw
+           ;; FIXME: composites may be arbitrary nested
+           ;; the columns of a composite may be other composite values
+           ;; it is easier to just select the composite value and parse it
+
            ;; This field is a composite type, add "(field).subfield" accessors
            ;; for each field in the type
            (merge cols

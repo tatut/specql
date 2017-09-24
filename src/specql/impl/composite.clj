@@ -9,7 +9,6 @@
            (java.time LocalTime)))
 
 (defn- matching [string start-ch end-ch start-idx]
-  ;(println "MATCHING: " string "; ch: " start-ch "from: " start-idx)
   (assert (= start-ch (.charAt string start-idx)))
   (loop [i (inc start-idx)
          nesting 0]
@@ -27,16 +26,50 @@
         :default
         (recur (inc i) nesting)))))
 
+#_(defn- unquote-one [s]
+  (-> s
+      (str/replace "\\\"" "\"")
+      (str/replace "\"\"" "\\\"")))
+
+#_(defn- quoted [elements start-idx]
+  (assert (= \" (.charAt elements start-idx)))
+  (let [last-idx (dec (count elements))]
+    (loop [prev-ch nil
+           idx (inc start-idx)]
+      (let [ch (.charAt elements idx)
+            next-ch (when (< idx last-idx)
+                      (.charAt elements (inc idx)))]
+        (if (and (= ch \") (not= prev-ch \\)
+                 (not= prev-ch \"))
+          [(-> (subs elements (inc start-idx) idx)
+               unquote-one) (inc idx)]
+          (recur ch (inc idx)))))))
+
 (defn- quoted [elements start-idx]
   (assert (= \" (.charAt elements start-idx)))
-  (loop [prev-ch nil
-         idx (inc start-idx)]
-    (let [ch (.charAt elements idx)]
-      (if (and (= ch \") (not= prev-ch \\))
-        [(-> (subs elements (inc start-idx) idx)
-             (str/replace "\\\"" "\"")
-             (str/replace "\"\"" "\\\"")) (inc idx)]
-        (recur ch (inc idx))))))
+  (let [last-idx (dec (count elements))]
+    (loop [acc ""
+           idx (inc start-idx)]
+      (let [prev-ch (.charAt elements (dec idx))
+            ch (.charAt elements idx)
+            next-ch (when (< idx last-idx)
+                      (.charAt elements (inc idx)))]
+        (cond
+          ;; pair of doublequotes: "" -> "
+          (= ch next-ch \")
+          (recur (str acc "\"") (+ idx 2))
+
+          ;; characted quoted with backslash
+          (and (= ch \\) next-ch)
+          (recur (str acc next-ch) (+ idx 2))
+
+          ;; single doublequote, end this quoted value
+          (= ch \")
+          [acc (inc idx)]
+
+          ;; any other character as is
+          :default
+          (recur (str acc ch) (inc idx)))))))
 
 (defn until [elements start-idx end-ch]
   (loop [idx (inc start-idx)]
@@ -46,7 +79,6 @@
       (recur (inc idx)))))
 
 (defn- split-elements [elements idx]
-  ;;(println "SPLIT ELEMENTS: " elements)
   (let [end (.length elements)]
     (loop [acc []
            idx 0]
@@ -87,11 +119,8 @@
   {:string string :as type})
 
 (defn- parse-composite [table-info-registry {cols :columns :as type} string]
-  ;(println "PARSE-COMPOSITE " string)
   (let [field-values-str (first (matching string \( \) 0))
-        ;_ (println "FIELD VALUES: " (pr-str field-values-str))
         fields (split-elements field-values-str 0)]
-    ;(println "FIELDS: " (pr-str fields))
     (into {}
           (keep (fn [[key {n :number :as col}]]
                   (let [val (some->> (get fields (dec n))

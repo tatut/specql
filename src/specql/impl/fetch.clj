@@ -336,8 +336,18 @@
               (reduce
                (fn [row [resultset-kw [_ output-path col]]]
                  (let [v (resultset-kw resultset-row)]
-                   (if (nil? v)
-                     row
+                   (cond
+
+                     ;; NULL value, don't add it to the result
+                     (nil? v) row
+
+                     ;; Composite value, parse it
+                     (= "C" (:category col))
+                     (assoc-in row output-path
+                               (composite/parse table-info-registry col (.getValue v)))
+
+                     ;; Regular value
+                     :default
                      (let [xf (::xf/transform col)]
                        (assoc-in row output-path
                                  (if xf

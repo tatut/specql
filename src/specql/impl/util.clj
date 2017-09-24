@@ -110,8 +110,9 @@
                      (conj value-names
                            (str "?::" (:name composite-type)))
                      (conj value-parameters
-                           (composite/stringify table-info-registry
-                                                composite-type value true))
+                           (when value
+                             (composite/stringify table-info-registry
+                                                  composite-type value true)))
                      columns))
 
             ;; Enum type, add value with ::enumtype cast

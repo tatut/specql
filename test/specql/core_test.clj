@@ -9,7 +9,9 @@
             [clojure.java.jdbc :as jdbc]
             [clojure.string :as str]
             [clojure.spec.alpha :as s]
-            [clojure.spec.test.alpha :as stest]))
+            [clojure.spec.test.alpha :as stest]
+            [specql.impl.composite :as composite]
+            [specql.impl.registry :as registry]))
 
 
 (t/use-fixtures :each with-db)
@@ -780,11 +782,23 @@
   ["outertable" ::outertable])
 
 (deftest insert-and-fetch-outertable
-  (let [row {::outercomposite {::innerc {::inners [{::foo "bar"}
+  (let [row {::outercomposite {::innerc {::inners [{::foo "Foo \"the meta\" Barsky"}
                                                    {::foo "baz"}]}}}]
     (is (contains?
          (insert! db ::outertable row)
          ::id))
+
+    (let [composite-string
+          (-> db
+              (jdbc/query ["SELECT outercomposite FROM outertable"])
+              first :outercomposite
+              .getValue)
+          tir @registry/table-info-registry
+          parsed (composite/parse tir {:type "outerc"} composite-string)]
+
+      (is (= parsed
+             {::innerc {::inners [{::foo "Foo \"the meta\" Barsky"}
+                                  {::foo "baz"}]}})))
 
     (is (= row
            (dissoc (first

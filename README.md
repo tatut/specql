@@ -51,6 +51,10 @@ See the [docs](https://tatut.github.io/specql) for more examples.
 
 # Changes
 
+### 0.7.0-alpha5
+
+* Apply `specql/transform` definitions to composite array elements when reading
+
 ### 0.7.0-alpha4
 
 * Improved Reading of complex composites

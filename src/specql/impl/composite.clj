@@ -123,10 +123,13 @@
         fields (split-elements field-values-str 0)]
     (into {}
           (keep (fn [[key {n :number :as col}]]
-                  (let [val (some->> (get fields (dec n))
+                  (let [xf (::xf/transform col)
+                        val (some->> (get fields (dec n))
                                      (parse table-info-registry col))]
                     (when val
-                      [key val]))))
+                      [key (if xf
+                             (xf/transform xf val)
+                             val)]))))
           cols)))
 
 (defmulti parse-value (fn [t str] t))
@@ -184,13 +187,15 @@
           ;;_ (println "ELEMENTS: " elements)
           element-parser
           (if-let [composite-or-enum-type (table-info-registry (:element-type type))]
-            (case (:type composite-or-enum-type)
-              :composite
-              ;; Parse a composite value
-              (partial parse-composite table-info-registry composite-or-enum-type)
+            (let [xf (-> composite-or-enum-type :rel ::xf/transform)
+                  from-sql (if xf #(xf/from-sql xf %) identity)]
+              (case (:type composite-or-enum-type)
+                :composite
+                ;; Parse a composite value
+                (partial parse-composite table-info-registry composite-or-enum-type)
 
-              :enum
-              (partial parse-enum (:values composite-or-enum-type)))
+                :enum
+                (comp from-sql (partial parse-enum (:values composite-or-enum-type)))))
 
             (partial parse-value (:element-type type)))]
       (into []

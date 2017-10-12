@@ -335,7 +335,9 @@
             (with-meta
               (reduce
                (fn [row [resultset-kw [_ output-path col]]]
-                 (let [v (resultset-kw resultset-row)]
+                 (let [v (resultset-kw resultset-row)
+                       xf (::xf/transform col)
+                       from-sql (if xf #(xf/from-sql xf %) identity)]
                    (cond
 
                      ;; NULL value, don't add it to the result
@@ -350,9 +352,7 @@
                      :default
                      (let [xf (::xf/transform col)]
                        (assoc-in row output-path
-                                 (if xf
-                                   (xf/from-sql xf v)
-                                   v))))))
+                                 (from-sql v))))))
                {}
                cols)
               (when group-fn

@@ -51,6 +51,10 @@ See the [docs](https://tatut.github.io/specql) for more examples.
 
 # Changes
 
+### 0.7.0-alpha6
+
+* Fix composite indexes when UDT attributes have been removed (with `ALTER TYPE`)
+
 ### 0.7.0-alpha5
 
 * Apply `specql/transform` definitions to composite array elements when reading

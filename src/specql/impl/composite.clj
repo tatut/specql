@@ -122,15 +122,16 @@
   (let [field-values-str (first (matching string \( \) 0))
         fields (split-elements field-values-str 0)]
     (into {}
-          (keep (fn [[key {n :number :as col}]]
-                  (let [xf (::xf/transform col)
-                        val (some->> (get fields (dec n))
-                                     (parse table-info-registry col))]
-                    (when val
-                      [key (if xf
-                             (xf/transform xf val)
-                             val)]))))
-          cols)))
+          (keep-indexed
+           (fn [i [key {n :number :as col}]]
+             (let [xf (::xf/transform col)
+                   val (some->> (get fields i)
+                                (parse table-info-registry col))]
+               (when val
+                 [key (if xf
+                        (xf/transform xf val)
+                        val)]))))
+          (sort-by (comp :number second) cols))))
 
 (defmulti parse-value (fn [t str] t))
 (defmethod parse-value "int4" [_ string]

@@ -18,7 +18,7 @@
                       {:table table
                        :alias alias})
                    where)
-        sql (str "DELETE FROM " table-name " AS " alias
+        sql (str "DELETE FROM " (q table-name) " AS " alias
                  " WHERE " where-clause)]
     (assert (not (str/blank? where-clause))
             "Will not delete with an empty where clause")

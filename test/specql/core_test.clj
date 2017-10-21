@@ -404,7 +404,11 @@
   (testing "delete from an unknown table"
     (is (thrown-with-msg?
          AssertionError #"Unknown table"
-         (delete! db :foo/bar {:foo/id 1})))))
+         (delete! db :foo/bar {:foo/id 1}))))
+
+  (testing "delete quotes table name propery"
+    (is (= 0 (delete! db :department-meeting-notes/notes
+                      {:department-meeting-notes/note "foo"})))))
 
 (deftest updating
   (testing "simple update"

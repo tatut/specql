@@ -54,6 +54,7 @@ See the [docs](https://tatut.github.io/specql) for more examples.
 ### 0.7.0-alpha7
 
 * Support "bpchar" (`CHAR(n)` type) in composite parsing
+* Fix table quoting in DELETE
 
 ### 0.7.0-alpha6
 

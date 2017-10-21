@@ -9,9 +9,6 @@
             [specql.impl.util :refer :all]
             [clojure.java.jdbc :as jdbc]))
 
-(when-not (resolve 'any?)
-  (require '[clojure.future :refer :all]))
-
 (s/def ::tables-definition
   (s/coll-of ::table-definition))
 

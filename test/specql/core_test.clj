@@ -808,3 +808,27 @@
            (dissoc (first
                     (fetch db ::outertable #{::id ::outercomposite} {}))
                    ::id)))))
+
+(deftest define-tables-options
+  (eval-ns '(define-tables {:specql.core/transform-column-name
+                            (fn [ns name]
+                              (keyword ns
+                                       (-> name
+                                           (str/replace #"_" "-"))))
+                            :specql.core/db define-db}
+              ["underscores" :underscores/underscores
+               ;; this name won't be transformed, the other column names will be
+               {"foo_bar" :dont.override/foobar}]))
+  (is (= '(nilable :specql.data-types/int4)
+         (eval-ns '(s/describe :underscores/something-id))))
+
+  (is (= '(nilable :specql.data-types/timestamp)
+         (eval-ns '(s/describe :underscores/a-third-column))))
+
+  (is (= '(nilable :specql.data-types/text)
+         (eval-ns '(s/describe :dont.override/foobar))))
+
+  ;; The name we specified by hand was not transformed
+  (is (thrown-with-msg?
+       Exception #"Unable to resolve spec: :underscores/foo-bar"
+       (eval-ns '(s/describe :underscores/foo-bar)))))

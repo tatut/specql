@@ -140,6 +140,8 @@
   (Long/parseLong string))
 (defmethod parse-value "varchar" [_ string]
   string)
+(defmethod parse-value "bpchar" [_ string]
+  string)
 (defmethod parse-value "numeric" [_ string]
   (bigdec string))
 (defmethod parse-value "text" [_ string] string)

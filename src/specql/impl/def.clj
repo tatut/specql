@@ -149,64 +149,69 @@
 
 (defmacro define-tables
   "See specql.core/define-tables for documentation."
-  [db & tables]
-  (with-open [con (connect (eval db))]
-    (let [db {:connection con}
-          tables (map merge-table-options
-                      (assert-spec ::tables-definition (map eval tables)))
-          table-info (into {}
-                           (map (fn [[table-name table-keyword opts]]
-                                  (let [ns (name (namespace table-keyword))]
-                                    [table-keyword
-                                     (-> (table-info db table-name)
-                                         (assoc :insert-spec-kw
-                                                (keyword ns (str (name table-keyword) "-insert")))
-                                         (process-columns ns opts)
-                                         (assoc :rel opts))])))
-                           tables)
-          new-table-info (reduce-kv
-                          (fn [m k v]
-                            (assoc m k
-                                   (update v :columns
-                                           (fn [columns]
-                                             (reduce-kv
-                                              (fn [cols key val]
-                                                (assoc cols key
-                                                       (registry/array-element-type table-info val)))
-                                              {}
-                                              columns)))))
-                          {}
-                          table-info)
-          table-info (merge @table-info-registry new-table-info)
-          new-table-info (apply-enum-transformations table-info new-table-info)]
+  [db-or-options & tables]
+  (let [db-or-options (eval db-or-options)
+        [db options] (if-let [db (:specql.core/db db-or-options)]
+                       [db db-or-options]
+                       [db-or-options {}])
+        transform-column-name (:specql.core/transform-column-name options)]
+    (with-open [con (connect db)]
+      (let [db {:connection con}
+            tables (map merge-table-options
+                        (assert-spec ::tables-definition (map eval tables)))
+            table-info (into {}
+                             (map (fn [[table-name table-keyword opts]]
+                                    (let [ns (name (namespace table-keyword))]
+                                      [table-keyword
+                                       (-> (table-info db table-name)
+                                           (assoc :insert-spec-kw
+                                                  (keyword ns (str (name table-keyword) "-insert")))
+                                           (process-columns ns opts transform-column-name)
+                                           (assoc :rel opts))])))
+                             tables)
+            new-table-info (reduce-kv
+                            (fn [m k v]
+                              (assoc m k
+                                     (update v :columns
+                                             (fn [columns]
+                                               (reduce-kv
+                                                (fn [cols key val]
+                                                  (assoc cols key
+                                                         (registry/array-element-type table-info val)))
+                                                {}
+                                                columns)))))
+                            {}
+                            table-info)
+            table-info (merge @table-info-registry new-table-info)
+            new-table-info (apply-enum-transformations table-info new-table-info)]
 
-      (validate-table-info table-info)
+        (validate-table-info table-info)
 
-      ;; Merge table info here, so that it is available in cljs compilation
-      (swap! table-info-registry merge new-table-info)
+        ;; Merge table info here, so that it is available in cljs compilation
+        (swap! table-info-registry merge new-table-info)
 
-      `(do
-         ;; Register table info so that it is available at runtime
-         (swap! table-info-registry merge ~new-table-info)
+        `(do
+           ;; Register table info so that it is available at runtime
+           (swap! table-info-registry merge ~new-table-info)
 
-         ~@(doall
-            (for [[_ table-keyword] tables
-                  :let [{columns :columns
-                         insert-spec-kw :insert-spec-kw :as table}
-                        (table-info table-keyword)
-                        {required-insert true
-                         optional-insert false} (group-by (comp required-insert? second) columns)]]
-              (if (= :enum (:type table))
-                (enum-spec table-keyword table)
-                `(do
-                   ;; Create the keys spec for the table
-                   (s/def ~table-keyword
-                     (s/keys :opt [~@(keys columns)]))
+           ~@(doall
+              (for [[_ table-keyword] tables
+                    :let [{columns :columns
+                           insert-spec-kw :insert-spec-kw :as table}
+                          (table-info table-keyword)
+                          {required-insert true
+                           optional-insert false} (group-by (comp required-insert? second) columns)]]
+                (if (= :enum (:type table))
+                  (enum-spec table-keyword table)
+                  `(do
+                     ;; Create the keys spec for the table
+                     (s/def ~table-keyword
+                       (s/keys :opt [~@(keys columns)]))
 
-                   ;; Spec for a "full" row that has all NOT NULL values
-                   (s/def ~insert-spec-kw
-                     (s/keys :req [~@(keys required-insert)]
-                             :opt [~@(keys optional-insert)]))
+                     ;; Spec for a "full" row that has all NOT NULL values
+                     (s/def ~insert-spec-kw
+                       (s/keys :req [~@(keys required-insert)]
+                               :opt [~@(keys optional-insert)]))
 
-                   ;; Create specs for columns
-                   ~@(doall (column-specs db table-info columns))))))))))
+                     ;; Create specs for columns
+                     ~@(doall (column-specs db table-info columns)))))))))))

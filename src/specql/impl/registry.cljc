@@ -73,7 +73,7 @@
 
              ;; Use provided transformation fn to derive column name
              (when transform-column-name
-               (transform-column name ns-name name))
+               (transform-column-name ns-name name))
 
              ;; If no name or transformation fn given, create a keyword
              ;; in the same namespace as the table

@@ -63,11 +63,21 @@
                  (enum-type table-info-registry element-type-name)
                  (keyword "specql.data-types" element-type-name))))))
 
-(defn- remap-columns [columns ns-name column-map]
+(defn- remap-columns [columns ns-name column-map transform-column-name]
   (reduce-kv
    (fn [columns name column]
      (assoc columns
-            (or (get column-map name) (keyword ns-name name))
+            (or
+             ;; Take the specified remapped name
+             (get column-map name)
+
+             ;; Use provided transformation fn to derive column name
+             (when transform-column-name
+               (transform-column name ns-name name))
+
+             ;; If no name or transformation fn given, create a keyword
+             ;; in the same namespace as the table
+             (keyword ns-name name))
             column))
    {} columns))
 
@@ -82,9 +92,20 @@
                                 #{:specql.transform/transform}))))
    {} columns))
 
-(defn process-columns [{columns :columns :as table-info} ns-name column-options-map]
+(defn- wrap-column-name-check [transform-column-name]
+  (when transform-column-name
+    (fn [ns name]
+      (let [column-name (transform-column-name ns name)]
+        (assert (qualified-keyword? column-name)
+                (str "Column names must be ns qualified keywords, transform-column-name fn returned: "
+                     column-name))
+        column-name))))
+
+(defn process-columns [{columns :columns :as table-info} ns-name column-options-map
+                       transform-column-name]
   (-> table-info
-      (update :columns remap-columns ns-name column-options-map)
+      (update :columns remap-columns ns-name column-options-map
+              (wrap-column-name-check transform-column-name))
       (update :columns transformed column-options-map)))
 
 (defn required-insert? [{:keys [not-null? has-default?]}]

@@ -169,6 +169,12 @@ CREATE TABLE issue (
 );
 
 
+CREATE TABLE underscores (
+  foo_bar TEXT,
+  something_id INTEGER,
+  a_third_column TIMESTAMP
+);
+
 -- Some tables for multiple has-many join tests
 
 -- CREATE TABLE customer (

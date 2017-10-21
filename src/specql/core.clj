@@ -25,7 +25,18 @@
   specs are by determined by the SQL type.
 
   If a column is a composite that that has been previously registered, it is registered
-  as the composite type."
+  as the composite type.
+
+
+  An options map can be given instead of the database connection.
+  The options map must contain the key `:specql.core/db` which is the database
+  connection to use.
+
+  Other supported options:
+  :specql.core/transform-column-name   a function to transform a column name to a namespaced keyword.
+                                       Takes 2 arguments: the namespace and the column name.
+                                       Must return a qualified keyword.
+  "
   [db & tables]
   `(def/define-tables ~db ~@tables))
 

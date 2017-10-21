@@ -8,11 +8,6 @@
             [clojure.string :as str]
             [clojure.java.jdbc :as jdbc]))
 
-;; Remove this when 1.9 is out
-(when-not (resolve 'any?)
-  (require '[clojure.future :refer :all]))
-
-
 
 (defn- primary-key-columns [columns]
   (into {}

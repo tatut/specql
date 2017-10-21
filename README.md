@@ -55,6 +55,7 @@ See the [docs](https://tatut.github.io/specql) for more examples.
 
 * Support "bpchar" (`CHAR(n)` type) in composite parsing
 * Fix table quoting in DELETE
+* Remove `clojure.future` requires as 1.9 is nearing release
 
 ### 0.7.0-alpha6
 

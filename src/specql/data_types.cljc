@@ -2,10 +2,6 @@
   "Defines specs for PostgreSQL database defined types."
   (:require [clojure.spec.alpha :as s]))
 
-#?(:clj
-   (when-not (resolve 'any?)
-     (require '[clojure.future :refer :all])))
-
 (s/def ::int2 (s/int-in -32768 32767))
 (s/def ::int4 (s/int-in -2147483648 2147483647))
 (s/def ::uint4 (s/int-in 0 4294967295))

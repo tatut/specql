@@ -200,7 +200,8 @@
                 :enum
                 (comp from-sql (partial parse-enum (:values composite-or-enum-type)))))
 
-            (partial parse-value (:element-type type)))]
+            (partial parse-value
+                     (subs (:type type) 1)))]
       (into []
             (map element-parser)
             elements))

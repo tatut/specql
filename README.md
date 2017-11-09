@@ -51,6 +51,10 @@ See the [docs](https://tatut.github.io/specql) for more examples.
 
 # Changes
 
+### 0.7.0-alpha8
+
+* Fix composite array of primitive type parsing
+
 ### 0.7.0-alpha7
 
 * Support "bpchar" (`CHAR(n)` type) in composite parsing

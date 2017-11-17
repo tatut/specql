@@ -51,6 +51,10 @@ See the [docs](https://tatut.github.io/specql) for more examples.
 
 # Changes
 
+### 0.7.0-alpha9
+
+* bigdec? was removed in Clojure 1.9.0-beta4, replaced with decimal? for compatibility
+
 ### 0.7.0-alpha8
 
 * Fix composite array of primitive type parsing

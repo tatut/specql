@@ -18,7 +18,7 @@
                  ;; FIXME: what is time in cljs?
                  :cljs any?))
 
-(s/def ::numeric #?(:clj bigdec?
+(s/def ::numeric #?(:clj decimal?
                     :cljs number?))
 (s/def ::text string?)
 (s/def ::bpchar string?)

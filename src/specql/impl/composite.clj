@@ -129,7 +129,7 @@
                                 (parse table-info-registry col))]
                (when val
                  [key (if xf
-                        (xf/transform xf val)
+                        (xf/from-sql xf val)
                         val)]))))
           (sort-by (comp :number second) cols))))
 

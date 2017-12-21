@@ -51,6 +51,10 @@ See the [docs](https://tatut.github.io/specql) for more examples.
 
 # Changes
 
+### 0.7.0-alpha11
+
+* Add spec for TIMESTAMP WITH TIME ZONE (timestamptz)
+
 ### 0.7.0-alpha10
 
 * Fix reading of transformed type in a composite type

@@ -282,7 +282,8 @@
                  (fetch db :typetest/table
                         #{:typetest/int :typetest/numeric
                           :typetest/text :typetest/date
-                          :typetest/bool :typetest/q :typetest/ts
+                          :typetest/bool :typetest/q
+                          :typetest/ts :typetest/tsz
                           :typetest/uuid :typetest/bytes}
                         {}))]
     (jdbc/execute! db "DELETE FROM typetest")

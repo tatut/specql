@@ -59,7 +59,8 @@ CREATE TABLE typetest (
  q quark NOT NULL,
  ts TIMESTAMP NOT NULL,
  uuid uuid NOT NULL,
- bytes bytea NOT NULL
+ bytes bytea NOT NULL,
+ tsz TIMESTAMP WITH TIME ZONE NOT NULL
 );
 
 

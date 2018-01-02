@@ -157,6 +157,11 @@
                  (str/split #","))]
     (mapv #(Double/parseDouble %) vals)))
 
+(defmethod parse-value "bool" [_ v]
+  (if (str/blank? v)
+    nil
+    (= "t" v)))
+
 (defn- pg-datetime-format []
   (java.text.SimpleDateFormat. "yyyy-MM-dd HH:mm:ss"))
 
@@ -231,6 +236,12 @@
   (str "("
        (str/join "," (map str vals))
        ")"))
+
+(defmethod stringify-value "bool" [_ v]
+  (cond
+    (nil? v) ""
+    (true? v) "t"
+    (false? v) "f"))
 
 ;; int4,int8,varchar,text,uuid,time,float8,numeric all default to (str val)
 (defmethod stringify-value :default [t val]

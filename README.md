@@ -51,6 +51,11 @@ See the [docs](https://tatut.github.io/specql) for more examples.
 
 # Changes
 
+### 0.7.0-alpha12 (2018-01-03)
+
+* Add missing "bool" support in composite
+* Fix composite parsing, skip quoted values when looking for a matching start/end pair (like "(" and ")").
+
 ### 0.7.0-alpha11
 
 * Add spec for TIMESTAMP WITH TIME ZONE (timestamptz)

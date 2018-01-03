@@ -38,25 +38,6 @@
         :default
         (recur (inc i) nesting)))))
 
-#_(defn- unquote-one [s]
-  (-> s
-      (str/replace "\\\"" "\"")
-      (str/replace "\"\"" "\\\"")))
-
-#_(defn- quoted [elements start-idx]
-  (assert (= \" (.charAt elements start-idx)))
-  (let [last-idx (dec (count elements))]
-    (loop [prev-ch nil
-           idx (inc start-idx)]
-      (let [ch (.charAt elements idx)
-            next-ch (when (< idx last-idx)
-                      (.charAt elements (inc idx)))]
-        (if (and (= ch \") (not= prev-ch \\)
-                 (not= prev-ch \"))
-          [(-> (subs elements (inc start-idx) idx)
-               unquote-one) (inc idx)]
-          (recur ch (inc idx)))))))
-
 (defn- quoted [elements start-idx]
   (assert (= \" (.charAt elements start-idx)))
   (let [last-idx (dec (count elements))]

@@ -8,12 +8,24 @@
   (:import (org.postgresql.util PGtokenizer)
            (java.time LocalTime)))
 
+(declare quoted)
+
 (defn- matching [string start-ch end-ch start-idx]
   (assert (= start-ch (.charAt string start-idx)))
   (loop [i (inc start-idx)
          nesting 0]
     (let [ch (.charAt string i)]
       (cond
+
+        ;; Encountered a quoted value, skip it completely.
+        ;; User given text field values may have start/end characters
+        ;; that must not be accounted. eg. "*) this is some text"
+        (= ch \")
+        (let [[_ new-idx] (quoted string i)]
+          ;; PENDING: we are unnecessarily creating the substring
+          ;; that is just discarded here.
+          (recur new-idx nesting))
+
         (and (= ch end-ch) (zero? nesting))
         [(subs string (inc start-idx) i) (inc i)]
 

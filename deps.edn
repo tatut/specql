@@ -1,3 +1,4 @@
 {:deps
  {org.clojure/clojure {:mvn/version "1.9.0"}
-  org.clojure/java.jdbc {:mvn/version "0.7.0"}}}
+  org.clojure/java.jdbc {:mvn/version "0.7.0"}
+  org.postgresql/postgresql {:mvn/version "42.1.4"}}}

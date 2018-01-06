@@ -1,9 +1,9 @@
-(defproject specql/specql "0.7.0-alpha12"
+(defproject specql/specql "0.7.0-alpha13"
   :description "PostgreSQL spec query language"
   :license {:name "MIT License"}
   :url "https://tatut.github.io/specql/"
-  :dependencies [[org.clojure/clojure "1.9.0-RC1"]
-                 [org.clojure/java.jdbc "0.7.0-alpha3"]]
+  :dependencies [[org.clojure/clojure "1.9.0"]
+                 [org.clojure/java.jdbc "0.7.0"]]
   :profiles {:dev {:dependencies [[org.clojure/test.check "0.9.0"]
                                  [com.opentable.components/otj-pg-embedded "0.7.1"]]}}
 

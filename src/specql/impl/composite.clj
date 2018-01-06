@@ -8,9 +8,14 @@
   (:import (org.postgresql.util PGtokenizer)
            (java.time LocalTime)))
 
+(set! *warn-on-reflection* true)
+
 (declare quoted)
 
-(defn- matching [string start-ch end-ch start-idx]
+(defn- matching [^String string
+                 ^Character start-ch
+                 ^Character end-ch
+                 start-idx]
   (assert (= start-ch (.charAt string start-idx)))
   (loop [i (inc start-idx)
          nesting 0]
@@ -38,7 +43,7 @@
         :default
         (recur (inc i) nesting)))))
 
-(defn- quoted [elements start-idx]
+(defn- quoted [^String elements start-idx]
   (assert (= \" (.charAt elements start-idx)))
   (let [last-idx (dec (count elements))]
     (loop [acc ""
@@ -64,14 +69,14 @@
           :default
           (recur (str acc ch) (inc idx)))))))
 
-(defn until [elements start-idx end-ch]
+(defn until [^String elements ^long start-idx end-ch]
   (loop [idx (inc start-idx)]
     (if (or (= idx (.length elements))
             (end-ch (.charAt elements idx)))
       [(subs elements start-idx idx) (inc idx)]
       (recur (inc idx)))))
 
-(defn- split-elements [elements idx]
+(defn- split-elements [^String elements ^long idx]
   (let [end (.length elements)]
     (loop [acc []
            idx 0]
@@ -81,17 +86,17 @@
           (cond
             ;; Read quoted value
             (= \" ch)
-            (let [[elt new-idx] (quoted elements idx)]
+            (let [[elt ^long new-idx] (quoted elements idx)]
               (recur (conj acc elt)
                      (inc new-idx)))
 
             (= \( ch)
-            (let [[elt new-idx] (matching elements \( \) idx)]
+            (let [[elt ^long new-idx] (matching elements \( \) idx)]
               (recur (conj acc (str "(" elt ")"))
                      (inc new-idx)))
 
             (= \{ ch)
-            (let [[elt new-idx] (matching elements \{ \} idx)]
+            (let [[elt ^long new-idx] (matching elements \{ \} idx)]
               (recur (conj acc (str "{" elt "}"))
                      (inc new-idx)))
 
@@ -102,9 +107,9 @@
 
             ;; Read non-quoted value
             :default
-            (let [[elt new-idx] (until elements idx #(= % \,))]
+            (let [[elt ^long new-idx] (until elements idx #(= % \,))]
               (recur (conj acc elt)
-                     new-idx))))))))
+                     (long new-idx)))))))))
 
 (declare parse)
 
@@ -162,11 +167,11 @@
   (java.text.SimpleDateFormat. "yyyy-MM-dd"))
 
 (defn- pg-datetime [string]
-  (.parse (pg-datetime-format)
+  (.parse ^java.text.SimpleDateFormat (pg-datetime-format)
           string))
 
 (defn- pg-date [string]
-  (.parse (pg-date-format) string))
+  (.parse ^java.text.SimpleDateFormat (pg-date-format) string))
 
 (defmethod parse-value "timestamp" [_ string]
   (pg-datetime string))
@@ -217,12 +222,12 @@
 (defmethod stringify-value "timestamp" [_ val]
   (if (nil? val)
     ""
-    (.format (pg-datetime-format) val)))
+    (.format ^java.text.SimpleDateFormat (pg-datetime-format) val)))
 
 (defmethod stringify-value "date" [_ val]
   (if (nil? val)
     ""
-    (.format (pg-date-format) val)))
+    (.format ^java.text.SimpleDateFormat (pg-date-format) val)))
 
 (defmethod stringify-value "point" [_ vals]
   ;; [x,y] vector to "(x,y)" string

@@ -97,7 +97,7 @@
             (recur (conj names (:name column))
                    (conj value-names
                          ;; Arrays are in catalog as "_typename"
-                         (str "?::" (subs (:type column) 1) "[]"))
+                         (str "?::" (q (subs (:type column) 1)) "[]"))
                    (conj value-parameters (composite/stringify table-info-registry column value true))
                    columns)
 
@@ -108,7 +108,7 @@
                   composite-columns (:columns composite-type)]
               (recur (conj names (:name column))
                      (conj value-names
-                           (str "?::" (:name composite-type)))
+                           (str "?::" (q (:name composite-type))))
                      (conj value-parameters
                            (when value
                              (composite/stringify table-info-registry
@@ -118,7 +118,7 @@
             ;; Enum type, add value with ::enumtype cast
             (:enum? column)
             (recur (conj names (:name column))
-                   (conj value-names (str "?::" (:type column)))
+                   (conj value-names (str "?::" (q (:type column))))
                    (conj value-parameters value)
                    columns)
 

@@ -237,18 +237,24 @@
            path->array-type))
         results)))))
 
-(defn- order-by [columns
+(defn- order-by [table-alias
+                 columns
                  {order :specql.core/order-by
                   direction :specql.core/order-direction}]
   (when direction
     (assert (some? order)
             "Order direction specified without an order-by column!"))
   (when order
-    (let [order-column (get columns order)]
+    (let [order-column (get columns order)
+          alias (some (fn [[_ alias _ _ columns]]
+                        (when (contains? columns order)
+                          alias))
+                      table-alias)]
       (assert (some? order-column)
               (str "Unknown order column: " order))
 
-      (str " ORDER BY " (q (:name order-column))
+      (str " ORDER BY " (when alias
+                          (str alias ".")) (q (:name order-column))
            (case direction
              (:asc :ascending nil) " ASC"
              (:desc :descending) " DESC"
@@ -301,7 +307,7 @@
                  " FROM " (sql-from table-info-registry table-alias)
                  (when-not (str/blank? where-clause)
                    (str " WHERE " where-clause))
-                 (order-by table-columns options)
+                 (order-by table-alias table-columns options)
                  (limit-offset options))
         row (gensym "row")
         sql-and-parameters (into [sql] where-parameters)
@@ -317,7 +323,7 @@
                               (comp (post-process-arrays-fn array-paths)
                                     process-collections))]
 
-    ;;(println "SQL: " (pr-str sql-and-parameters))
+    (println "SQL: " (pr-str sql-and-parameters))
 
     ;; Post process: parse arrays after joined collections
     ;; have been processed. So that we don't unnecessarily parse

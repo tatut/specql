@@ -323,7 +323,7 @@
                               (comp (post-process-arrays-fn array-paths)
                                     process-collections))]
 
-    (println "SQL: " (pr-str sql-and-parameters))
+    ;;(println "SQL: " (pr-str sql-and-parameters))
 
     ;; Post process: parse arrays after joined collections
     ;; have been processed. So that we don't unnecessarily parse

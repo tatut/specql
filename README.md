@@ -51,6 +51,10 @@ See the [docs](https://tatut.github.io/specql) for more examples.
 
 # Changes
 
+### 0.7.0-alpha14 (2018-01-23)
+
+* Fix: disambiguate `ORDER BY` column with table alias
+
 ### 0.7.0-alpha13 (2018-01-22)
 
 * Quote type names in casts

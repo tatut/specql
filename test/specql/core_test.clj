@@ -219,12 +219,40 @@
                       :employee/employment-started (java.util.Date.)
                       :employee/address #:address {:street "Bra{e street"
                                                    :postal-code "1(2)345"
-                                                   :country "')"}})))))
+                                                   :country "')"}}))
+
+        (is (insert! db :employee/employees
+                     {:employee/name "Braces"
+                      :employee/employment-started (java.util.Date.)
+                      :employee/address #:address {:street "{"}})))))
 
   (testing "count after insertions"
-    (is (= 8 (count (fetch db :employee/employees
+    (is (= 9 (count (fetch db :employee/employees
                            #{:employee/id}
                            {}))))))
+
+(deftest composite-address-with-brace
+  (is (= #:address {:street "{"}
+         (specql.impl.composite/parse @specql.impl.registry/table-info-registry
+                                      {:category "C" :not-null? false :has-default? false
+                                       :primary-key? false :number 5 :name "address" :type "address"
+                                       :enum? false :type-specific-data -1}
+                                      "({,,)"))))
+
+(deftest composite-array-with-brace
+  (let [mailinglist {:mailinglist/name "a list"
+                     :mailinglist/recipients [{:recipient/name "{"
+                                               :recipient/address {:address/street "{"
+                                                                   :address/postal-code "12345"}}
+
+                                              {:recipient/name "foo's bar"
+                                               :recipient/address {:address/street "{{street}} '12"
+                                                                   :address/postal-code "9999"}}]}
+        inserted (insert! db :mailinglist/mailinglist mailinglist)
+        fetched (first (fetch db :mailinglist/mailinglist (columns :mailinglist/mailinglist)
+                              {:mailinglist/name "a list"}))]
+    (delete! db :mailinglist/mailinglist {:mailinglist/name "a list"})
+    (is (= inserted fetched))))
 
 (defn- non-nil-keys [m]
   (select-keys m (keep (fn [[k v]]

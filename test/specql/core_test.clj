@@ -5,11 +5,14 @@
             [specql.rel :as rel]
             [specql.transform :as xf]
             [clojure.test :as t :refer [deftest is testing]]
+            [clojure.test.check.clojure-test :refer [defspec]]
+            [clojure.test.check.properties :as prop]
             [specql.embedded-postgres :refer [with-db datasource db]]
             [clojure.java.jdbc :as jdbc]
             [clojure.string :as str]
             [clojure.spec.alpha :as s]
             [clojure.spec.test.alpha :as stest]
+            [clojure.spec.gen.alpha :as gen]
             [specql.impl.composite :as composite]
             [specql.impl.registry :as registry]))
 
@@ -216,13 +219,38 @@
                       :employee/employment-started (java.util.Date.)
                       :employee/address #:address {:street "Bra{e street"
                                                    :postal-code "1(2)345"
-                                                   :country "')"}})))
-      ))
+                                                   :country "')"}})))))
 
   (testing "count after insertions"
     (is (= 8 (count (fetch db :employee/employees
                            #{:employee/id}
                            {}))))))
+
+(defn- non-nil-keys [m]
+  (select-keys m (keep (fn [[k v]]
+                         (when (and (not (nil? v))
+                                    (or (not (string? v))
+                                        (not (str/blank? v))))
+                           k)) m)))
+
+(defspec generated-employee-addresses
+  100
+  (prop/for-all
+   [street (gen/fmap #(if (<= (count %) 20)
+                        %
+                        (subs % 0 20)) (gen/string-ascii))
+    employee (s/gen :employee/employees-insert)]
+   (let [employee (-> employee
+                      (assoc :employee/department-id 1)
+                      (dissoc :employee/id)
+                      (assoc-in [:employee/address :address/street] street))
+         inserted (insert! db :employee/employees employee)
+         fetched (first (fetch db :employee/employees (columns :employee/employees)
+                               {:employee/id (:employee/id inserted)}))]
+     (delete! db :employee/employees {:employee/id (:employee/id inserted)})
+     (is (= (:employee/id inserted) (:employee/id fetched)))
+     (is (= (non-nil-keys (:employee/address inserted))
+            (non-nil-keys (:employee/address fetched)))))))
 
 (deftest query-with-composite-value
   (testing "query companies by visiting address country"

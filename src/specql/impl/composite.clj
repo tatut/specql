@@ -245,7 +245,7 @@
 (defmethod stringify-value :default [t val]
   (str val))
 
-(def special-characters #{\( \) \{ \} \space \" \' \,})
+(def special-characters #{\( \) \{ \} \space \" \' \, \[ \] \\})
 
 (defn pg-quote [string]
   (if (str/blank? string)

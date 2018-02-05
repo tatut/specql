@@ -245,14 +245,12 @@
 (defmethod stringify-value :default [t val]
   (str val))
 
+(def special-characters #{\( \) \{ \} \space \" \' \,})
+
 (defn pg-quote [string]
   (if (str/blank? string)
     ""
-    (if (or
-         (str/starts-with? string "(")
-         (str/starts-with? string "{")
-         (str/includes? string " ")
-         (str/includes? string "\""))
+    (if (some special-characters string)
       (str "\""
            (-> string
                (str/replace "\\" "\\\\")

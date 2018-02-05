@@ -201,10 +201,26 @@
            (insert! db :employee/employees
                     {:employee/name "Frob"
                      :employee/address (assoc addr
-                                              :address/postal-code 666)})))))
+                                              :address/postal-code 666)})))
+
+      (testing "Interesting characters in data"
+        (is (insert! db :employee/employees
+                   {:employee/name "Comma"
+                    :employee/employment-started (java.util.Date.)
+                    :employee/address #:address {:street "Commaroad,"
+                                                 :postal-code "12345"
+                                                 :country "CO"}}))
+
+        (is (insert! db :employee/employees
+                     {:employee/name "Braces"
+                      :employee/employment-started (java.util.Date.)
+                      :employee/address #:address {:street "Bra{e street"
+                                                   :postal-code "1(2)345"
+                                                   :country "')"}})))
+      ))
 
   (testing "count after insertions"
-    (is (= 6 (count (fetch db :employee/employees
+    (is (= 8 (count (fetch db :employee/employees
                            #{:employee/id}
                            {}))))))
 

@@ -95,11 +95,6 @@
               (recur (conj acc (str "(" elt ")"))
                      (inc new-idx)))
 
-            (= \{ ch)
-            (let [[elt ^long new-idx] (matching elements \{ \} idx)]
-              (recur (conj acc (str "{" elt "}"))
-                     (inc new-idx)))
-
             ;; At "," character, this is an empty value
             (= \, ch)
             (recur (conj acc nil)
@@ -187,33 +182,38 @@
   element)
 
 (defn parse [table-info-registry type string]
-  ;;(println "PARSE: " (pr-str type) ": " string)
-  (if (= "A" (:category type))
-    (let [elements (split-elements (first (matching string \{ \} 0)) 0)
-          ;;_ (println "ELEMENTS: " elements)
-          element-parser
-          (if-let [composite-or-enum-type (table-info-registry (:element-type type))]
-            (let [xf (-> composite-or-enum-type :rel ::xf/transform)
-                  from-sql (if xf #(xf/from-sql xf %) identity)]
-              (case (:type composite-or-enum-type)
-                :composite
-                ;; Parse a composite value
-                (partial parse-composite table-info-registry composite-or-enum-type)
+  (try
+    (if (= "A" (:category type))
+      (let [elements (split-elements (first (matching string \{ \} 0)) 0)
+            ;;_ (println "ELEMENTS: " elements)
+            element-parser
+            (if-let [composite-or-enum-type (table-info-registry (:element-type type))]
+              (let [xf (-> composite-or-enum-type :rel ::xf/transform)
+                    from-sql (if xf #(xf/from-sql xf %) identity)]
+                (case (:type composite-or-enum-type)
+                  :composite
+                  ;; Parse a composite value
+                  (partial parse-composite table-info-registry composite-or-enum-type)
 
-                :enum
-                (comp from-sql (partial parse-enum (:values composite-or-enum-type)))))
+                  :enum
+                  (comp from-sql (partial parse-enum (:values composite-or-enum-type)))))
 
-            (partial parse-value
-                     (subs (:type type) 1)))]
-      (into []
-            (map element-parser)
-            elements))
+              (partial parse-value
+                       (subs (:type type) 1)))]
+        (into []
+              (map element-parser)
+              elements))
 
-    (if-let [ct (registry/composite-type table-info-registry (:type type))]
-      (parse-composite table-info-registry (table-info-registry ct) string)
-      (if-let [et (registry/enum-type table-info-registry (:type type))]
-        (parse-enum (:values (table-info-registry et)) string)
-        (parse-value (:type type) string)))))
+      (if-let [ct (registry/composite-type table-info-registry (:type type))]
+        (parse-composite table-info-registry (table-info-registry ct) string)
+        (if-let [et (registry/enum-type table-info-registry (:type type))]
+          (parse-enum (:values (table-info-registry et)) string)
+          (parse-value (:type type) string))))
+    (catch Exception e
+      (throw (ex-info "Composite parsing failed, this is most likely a bug"
+                      {:type type
+                       :string string
+                       :cause e})))))
 
 ;; Write back composite values to postgres string representation
 

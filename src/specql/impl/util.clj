@@ -28,14 +28,20 @@
                    (str col-name " AS " (name col-alias)))
                  cols)))
 
+(defn safe-alias-prefix
+  "Given a named (keyword), return a short alias prefix that is safe for SQL."
+  [named]
+  (let [n (str/replace (name named)
+                       #"[^\w]" "_")]
+    (subs n 0 (min (count n) 3))))
+
 (defn gen-alias
   "Returns a function that create successively numbered aliases for keywords."
   []
   (let [alias (volatile! 0)]
     (fn [named]
-      (let [n (name named)]
-        (str (subs n 0 (min (count n) 3))
-             (vswap! alias inc))))))
+      (str (safe-alias-prefix named)
+           (vswap! alias inc)))))
 
 (defn fetch-columns
   "Return a map of column alias to vector of [sql-accessor result-path]"

@@ -29,7 +29,8 @@
   (from-sql [_ sql-value]
     (keyword ns (str sql-value)))
   (to-sql [_ keyword-value]
-    (name keyword-value))
+    (when keyword-value
+      (name keyword-value)))
   (transform-spec [_ input-spec]
     (if (set? input-spec)
       ;; This is an enum of values, make them all keywords

@@ -915,3 +915,16 @@
                                  (keyword (str "not-a-qualified-" name)))
                                :specql.core/db define-db}
                  ["underscores" :underscores/underscores])))))
+
+
+(define-tables define-db
+  ["things_that_exist" :inv/things-that-exist (xf/transform (xf/to-keyword))]
+  ["thing_inventory" :inv/thing-inventory]
+  ["my_things" :inv/my-things])
+
+(deftest store-and-fetch-inventory-with-nil-enum-value
+  (let [inventory {:inv/inventory [;; no :inv/thing key
+                                   {:inv/how_many 666}]}]
+    (insert! db :inv/my-things inventory)
+    (is (= (first (fetch db :inv/my-things #{:inv/inventory} {}))
+           inventory))))

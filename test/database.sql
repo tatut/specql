@@ -176,6 +176,21 @@ CREATE TABLE underscores (
   a_third_column TIMESTAMP
 );
 
+
+-- Testing to-keyword transform inside composite
+CREATE TYPE things_that_exist AS ENUM ('chair','lamp','dog','other');
+CREATE TYPE thing_inventory AS (
+  thing things_that_exist,
+  how_many INTEGER
+);
+
+CREATE TABLE my_things (
+  inventory thing_inventory[]
+);
+
+
+
+
 -- Some tables for multiple has-many join tests
 
 -- CREATE TABLE customer (

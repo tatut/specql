@@ -328,43 +328,48 @@
     ;; Post process: parse arrays after joined collections
     ;; have been processed. So that we don't unnecessarily parse
     ;; the same array many times
-    (jdbc/with-db-transaction [db db]
-      ;; Use transaction here because we need the connection when reading composite values.
-      ;; Don't use with-db-connection as that prevents an outer transaction by closing the
-      ;; connection after.
-      (with-meta
-        (process-collections
-         (map
-          ;; Process each row and remap the columns
-          ;; to the namespaced keys we want.
-          (fn [resultset-row]
-            (with-meta
-              (reduce
-               (fn [row [resultset-kw [_ output-path col]]]
-                 (let [v (resultset-kw resultset-row)
-                       xf (::xf/transform col)
-                       from-sql (if xf #(xf/from-sql xf %) identity)]
-                   (cond
+    (try
+      (jdbc/with-db-transaction [db db]
+           ;; Use transaction here because we need the connection when reading composite values.
+           ;; Don't use with-db-connection as that prevents an outer transaction by closing the
+           ;; connection after.
+           (with-meta
+             (process-collections
+              (map
+               ;; Process each row and remap the columns
+               ;; to the namespaced keys we want.
+               (fn [resultset-row]
+                 (with-meta
+                   (reduce
+                    (fn [row [resultset-kw [_ output-path col]]]
+                      (let [v (resultset-kw resultset-row)
+                            xf (::xf/transform col)
+                            from-sql (if xf #(xf/from-sql xf %) identity)]
+                        (cond
 
-                     ;; NULL value, don't add it to the result
-                     (nil? v) row
+                          ;; NULL value, don't add it to the result
+                          (nil? v) row
 
-                     ;; Composite value, parse it
-                     (= "C" (:category col))
-                     (assoc-in row output-path
-                               (composite/parse table-info-registry col (.getValue v)))
+                          ;; Composite value, parse it
+                          (= "C" (:category col))
+                          (assoc-in row output-path
+                                    (composite/parse table-info-registry col (.getValue v)))
 
-                     ;; Regular value
-                     :default
-                     (let [xf (::xf/transform col)]
-                       (assoc-in row output-path
-                                 (from-sql v))))))
-               {}
-               cols)
-              (when group-fn
-                {::group (group-fn resultset-row)})))
+                          ;; Regular value
+                          :default
+                          (let [xf (::xf/transform col)]
+                            (assoc-in row output-path
+                                      (from-sql v))))))
+                    {}
+                    cols)
+                   (when group-fn
+                     {::group (group-fn resultset-row)})))
 
-          ;; Query the generated SQL with the where map arguments
-          (jdbc/query db sql-and-parameters)))
-        {::has-many-join-cols has-many-join-cols
-         ::sql sql-and-parameters}))))
+               ;; Query the generated SQL with the where map arguments
+               (jdbc/query db sql-and-parameters)))
+             {::has-many-join-cols has-many-join-cols
+              ::sql sql-and-parameters}))
+      (catch Exception e
+        (throw (ex-info "Exception thrown in query"
+                        {::sql sql-and-parameters
+                         :exception e}))))))

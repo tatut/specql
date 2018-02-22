@@ -51,6 +51,11 @@ See the [docs](https://tatut.github.io/specql) for more examples.
 
 # Changes
 
+### 0.7.0-alpha17 (2018-02-22)
+
+* Added SQL exceptions provide generated SQL and parameters
+* Fix storing `nil` value when in a `to-keyword` transformed composite
+
 ### 0.7.0-alpha16 (2018-02-05)
 
 * Fixed yet another composite quoting issue

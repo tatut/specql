@@ -100,6 +100,12 @@
   (update/update! db table record where))
 
 
+(defn refresh!
+  "Refresh a materialized view."
+  [db materialized-view-table]
+  (update/refresh! db materialized-view-table))
+
+
 ;; Functions to query the runtime information
 
 (defn columns

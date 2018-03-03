@@ -33,3 +33,11 @@
         sql-and-params (into [sql] (concat value-parameters
                                            where-parameters))]
     (first (jdbc/execute! db sql-and-params))))
+
+(defn refresh! [db table]
+  (assert-table table)
+  (let [{:keys [name type]} (@registry/table-info-registry table)]
+    (assert (= type :materialized-view)
+            (str "refresh! can only be called on a materialized view. " table " is a " type))
+    (jdbc/execute! db [(str "REFRESH MATERIALIZED VIEW " (q name))])
+    :specql.core/ok))

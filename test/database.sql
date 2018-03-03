@@ -46,6 +46,16 @@ VALUES ('Wile E. Coyote', 'Super genious', 1, '(Desert avenue 1,31173,US)'::addr
        ('Max Syöttöpaine', 'über consultant', 1, '(Kujatie 2,90100,FI)'::address, '2017-01-01'::date, NULL),
        ('Foo Barsky', 'metasyntactic checker', 1, NULL, '2010-07-07'::date, '2016-12-31'::date);
 
+CREATE MATERIALIZED VIEW company_employees_by_country AS
+SELECT c.id, c.name, (e.address).country, COUNT(e.id)
+  FROM company c
+       JOIN employee e ON e.department IN (SELECT id
+                                             FROM department
+                                            WHERE "company-id" = c.id)
+ WHERE (e.address).country IS NOT NULL
+ GROUP BY c.id, c.name, (e.address).country;
+
+
 
 CREATE TYPE quark AS ENUM ('up', 'down','strange','charm','bottom','top');
 

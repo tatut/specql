@@ -1,6 +1,6 @@
 (ns specql.core-test
   (:require [specql.core :refer [define-tables fetch insert! delete! update! upsert!
-                                 columns tables] :as specql]
+                                 columns tables refresh!] :as specql]
             [specql.op :as op]
             [specql.rel :as rel]
             [specql.transform :as xf]
@@ -928,3 +928,37 @@
     (insert! db :inv/my-things inventory)
     (is (= (first (fetch db :inv/my-things #{:inv/inventory} {}))
            inventory))))
+
+
+(define-tables define-db
+  ["company_employees_by_country" :mat/employees-by-country])
+
+
+(deftest query-and-refresh-materialized-view
+  (let [fetch-view #(into #{}
+                          (fetch db :mat/employees-by-country
+                                 #{:mat/id :mat/name :mat/country :mat/count}
+                                 {}))]
+    (testing "Querying materialized view works just like on a table"
+      (is (= #{{:mat/id 1 :mat/name "Acme Inc" :mat/country "FI" :mat/count 1}
+               {:mat/id 1 :mat/name "Acme Inc" :mat/country "US" :mat/count 1}}
+             (fetch-view))))
+
+    (testing "Refreshing a materialized view"
+      (insert! db :employee/employees
+               {:employee/name "Romeo Yömaa"
+                :employee/department-id 1
+                :employee/employment-started (java.util.Date.)
+                :employee/address {:address/street "Jokutie 1"
+                                   :address/postal-code "12312"
+                                   :address/country "FI"}})
+
+      (refresh! db :mat/employees-by-country)
+
+      (is (= #{{:mat/id 1 :mat/name "Acme Inc" :mat/country "FI" :mat/count 2}
+               {:mat/id 1 :mat/name "Acme Inc" :mat/country "US" :mat/count 1}}
+             (fetch-view))))
+
+    (testing "Trying to refresh a table will throw"
+      (asserted #":employee/employees is a :table"
+                (refresh! db :employee/employees)))))

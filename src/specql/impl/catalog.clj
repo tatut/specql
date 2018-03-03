@@ -86,7 +86,8 @@
          :type (case relkind
                  "c" :composite
                  "r" :table
-                 "v" :view)
+                 "v" :view
+                 "m" :materialized-view)
          :columns (into {}
                         (map (juxt :name identity))
                         columns)}))))

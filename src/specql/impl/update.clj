@@ -23,13 +23,13 @@
                             {:table table
                              :alias alias})
                          where)
-
         sql (str "UPDATE " (q table-name) " AS " alias
                  " SET " (str/join ","
                                    (map (fn [column-name value-name]
                                           (str (q column-name) "=" value-name))
                                         column-names value-names))
-                 " WHERE " where-clause)
+                 (when-not (str/blank? where-clause)
+                   (str " WHERE " where-clause)))
         sql-and-params (into [sql] (concat value-parameters
                                            where-parameters))]
     (first (jdbc/execute! db sql-and-params))))

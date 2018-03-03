@@ -962,3 +962,17 @@
     (testing "Trying to refresh a table will throw"
       (asserted #":employee/employees is a :table"
                 (refresh! db :employee/employees)))))
+
+(deftest update-with-empty-where-clause
+  (is (not (empty? (fetch db :employee/employees #{:employee/id}
+                          {:employee/employment-ended op/null?}))))
+
+  ;; fire everybody!
+  (update! db :employee/employees
+           {:employee/employment-ended (java.util.Date.)}
+
+           ;; empty where map
+           {})
+
+  (is (empty? (fetch db :employee/employees #{:employee/id}
+                     {:employee/employment-ended op/null?}))))

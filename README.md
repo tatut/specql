@@ -57,6 +57,7 @@ Birthday release! Specql is now 1 year old.
 
 * Added support for MATERIALIZED VIEWs
 * Added `refresh!` to refresh a materialized view
+* Fixed `update!` with empty where clause
 
 ### 0.7.0-alpha17 (2018-02-22)
 

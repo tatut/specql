@@ -976,3 +976,21 @@
 
   (is (empty? (fetch db :employee/employees #{:employee/id}
                      {:employee/employment-ended op/null?}))))
+
+(deftest combined-op-query-with-no-clauses
+  (let [q #(not (empty?
+                 (fetch db :employee/employees #{:employee/id}
+                        %)))]
+    (testing "Empty combined op on top level"
+      (is (q (op/and
+              (when (> 1 10)
+                {:employee/name (op/like "Max%")})
+              (when false
+                {:employee/department-id 1})))))
+
+    (testing "Empty combined op on a column"
+      (is (q {:employee/name
+              (op/and (when (> 1 10)
+                        (op/like "Max%"))
+                      (when false
+                        (op/like "%ne")))})))))

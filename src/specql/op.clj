@@ -102,15 +102,21 @@
 (defrecord CombinedOp [combine-with ops]
   Op
   (to-sql [_ value-accessor column-info]
-    (loop [sql []
-           params []
-           [op & ops] (remove nil? ops)]
-      (if-not op
-        [(str "(" (str/join combine-with sql) ")") params]
-        (let [[op-sql op-params] (to-sql op value-accessor column-info)]
-          (recur (conj sql op-sql)
-                 (into params op-params)
-                 ops))))))
+    (let [ops (remove nil? ops)]
+      (if (empty? ops)
+        ;; All ops are nil, return empty fragment with no params
+        ["" []]
+
+        ;; Combine clauses and fragments
+        (loop [sql []
+               params []
+               [op & ops] ops]
+          (if-not op
+            [(str "(" (str/join combine-with sql) ")") params]
+            (let [[op-sql op-params] (to-sql op value-accessor column-info)]
+              (recur (conj sql op-sql)
+                     (into params op-params)
+                     ops))))))))
 
 (defn combined-op? [x]
   (instance? CombinedOp x))

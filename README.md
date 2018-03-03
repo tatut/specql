@@ -51,6 +51,13 @@ See the [docs](https://tatut.github.io/specql) for more examples.
 
 # Changes
 
+### 0.7.0-alpha18 (2018-03-03)
+
+Birthday release! Specql is now 1 year old.
+
+* Added support for MATERIALIZED VIEWs
+* Added `refresh!` to refresh a materialized view
+
 ### 0.7.0-alpha17 (2018-02-22)
 
 * Added SQL exceptions provide generated SQL and parameters

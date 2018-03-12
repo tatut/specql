@@ -51,6 +51,11 @@ See the [docs](https://tatut.github.io/specql) for more examples.
 
 # Changes
 
+### 20180312
+
+* Changed to a date based versioning
+* Added `specql.postgis` namespace that adds composite parsing support for geometry (requires postgis Java classes)
+
 ### 0.7.0-alpha18 (2018-03-03)
 
 Birthday release! Specql is now 1 year old.

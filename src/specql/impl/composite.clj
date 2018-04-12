@@ -171,6 +171,25 @@
 (defmethod parse-value "timestamp" [_ string]
   (pg-datetime string))
 
+
+
+(def timestamptz-pattern
+  #"^(\d{4})-(\d{2})-(\d{2}) (\d{2}):(\d{2}):(\d{2})\.(\d{6})((\+|\-)\d{1,2})$")
+
+(defmethod parse-value "timestamptz" [_ string]
+  (let [[_ year month day hour minute second microsecond tz] (re-matches timestamptz-pattern string)]
+    (java.util.Date/from
+     (.toInstant
+      (java.time.ZonedDateTime/of
+       (java.time.LocalDateTime/of (Integer/parseInt year)
+                                   (Integer/parseInt month)
+                                   (Integer/parseInt day)
+                                   (Integer/parseInt hour)
+                                   (Integer/parseInt minute)
+                                   (Integer/parseInt second)
+                                   (* 1000 (Integer/parseInt microsecond)))
+       (java.time.ZoneId/of tz))))))
+
 (defmethod parse-value "date" [_ string]
   (pg-date string))
 

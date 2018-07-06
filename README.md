@@ -51,6 +51,10 @@ See the [docs](https://tatut.github.io/specql) for more examples.
 
 # Changes
 
+### 20180706
+
+* Composite parsing speed improvement on large payloads: Avoid creating substrings when skipping quoted values.
+
 ### 20180312
 
 * Changed to a date based versioning

@@ -45,9 +45,9 @@
 
 (defn- quoted [^String elements start-idx]
   (assert (= \" (.charAt elements start-idx)))
-  (let [last-idx (dec (count elements))]
-    (loop [acc ""
-           idx (inc start-idx)]
+  (let [last-idx (dec (count elements))
+        acc (StringBuilder.)]
+    (loop [idx (inc start-idx)]
       (let [prev-ch (.charAt elements (dec idx))
             ch (.charAt elements idx)
             next-ch (when (< idx last-idx)
@@ -55,19 +55,25 @@
         (cond
           ;; pair of doublequotes: "" -> "
           (= ch next-ch \")
-          (recur (str acc "\"") (+ idx 2))
+          (do
+            (.append acc "\"")
+            (recur (+ idx 2)))
 
           ;; characted quoted with backslash
           (and (= ch \\) next-ch)
-          (recur (str acc next-ch) (+ idx 2))
+          (do
+            (.append acc next-ch)
+            (recur (+ idx 2)))
 
           ;; single doublequote, end this quoted value
           (= ch \")
-          [acc (inc idx)]
+          [(str acc) (inc idx)]
 
           ;; any other character as is
           :default
-          (recur (str acc ch) (inc idx)))))))
+          (do
+            (.append acc ch)
+            (recur (inc idx))))))))
 
 (defn until [^String elements ^long start-idx end-ch]
   (loop [idx (inc start-idx)]

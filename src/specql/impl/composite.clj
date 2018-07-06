@@ -10,7 +10,7 @@
 
 (set! *warn-on-reflection* true)
 
-(declare quoted)
+(declare quoted skip-quoted)
 
 (defn- matching [^String string
                  ^Character start-ch
@@ -26,10 +26,7 @@
         ;; User given text field values may have start/end characters
         ;; that must not be accounted. eg. "*) this is some text"
         (= ch \")
-        (let [[_ new-idx] (quoted string i)]
-          ;; PENDING: we are unnecessarily creating the substring
-          ;; that is just discarded here.
-          (recur new-idx nesting))
+        (recur (skip-quoted string i) nesting)
 
         (and (= ch end-ch) (zero? nesting))
         [(subs string (inc start-idx) i) (inc i)]
@@ -74,6 +71,33 @@
           (do
             (.append acc ch)
             (recur (inc idx))))))))
+
+(defn- skip-quoted
+  "Like quoted, but doesn't return the quoted string. Returns the index after the quoted string."
+  [^String elements start-idx]
+  (assert (= \" (.charAt elements start-idx)))
+  (let [last-idx (dec (count elements))]
+    (loop [idx (inc start-idx)]
+      (let [prev-ch (.charAt elements (dec idx))
+            ch (.charAt elements idx)
+            next-ch (when (< idx last-idx)
+                      (.charAt elements (inc idx)))]
+        (cond
+          ;; pair of doublequotes: "" -> "
+          (= ch next-ch \")
+          (recur (+ idx 2))
+
+          ;; characted quoted with backslash
+          (and (= ch \\) next-ch)
+          (recur (+ idx 2))
+
+          ;; single doublequote, end this quoted value
+          (= ch \")
+          (inc idx)
+
+          ;; any other character as is
+          :default
+          (recur (inc idx)))))))
 
 (defn until [^String elements ^long start-idx end-ch]
   (loop [idx (inc start-idx)]

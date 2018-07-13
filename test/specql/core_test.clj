@@ -239,6 +239,26 @@
                                        :enum? false :type-specific-data -1}
                                       "({,,)"))))
 
+(deftest array-with-null
+  (is (= [nil 3 2]
+         (specql.impl.composite/parse @specql.impl.registry/table-info-registry
+                                      {:category "A" :not-null? false :has-default? false
+                                       :primary-key? false :number 5 :type "_int4"
+                                       :enum? false}
+                                      "{NULL,3,2}")))
+  (is (= ["NULL" "3" "2"]
+         (specql.impl.composite/parse @specql.impl.registry/table-info-registry
+                                      {:category "A" :not-null? false :has-default? false
+                                       :primary-key? false :number 5 :type "_text"
+                                       :enum? false}
+                                      "{\"NULL\",\"3\",\"2\"}")))
+  (is (= [nil "3" "2"]
+         (specql.impl.composite/parse @specql.impl.registry/table-info-registry
+                                      {:category "A" :not-null? false :has-default? false
+                                       :primary-key? false :number 5 :type "_text"
+                                       :enum? false}
+                                      "{NULL,\"3\",\"2\"}"))))
+
 (deftest composite-array-with-brace
   (let [mailinglist {:mailinglist/name "a list"
                      :mailinglist/recipients [{:recipient/name "{"

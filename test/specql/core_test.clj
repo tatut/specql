@@ -237,7 +237,13 @@
                                       {:category "C" :not-null? false :has-default? false
                                        :primary-key? false :number 5 :name "address" :type "address"
                                        :enum? false :type-specific-data -1}
-                                      "({,,)"))))
+                                      "({,,)")))
+  (is (= #:address {:street "NULL"}
+         (specql.impl.composite/parse @specql.impl.registry/table-info-registry
+                                      {:category "C" :not-null? false :has-default? false
+                                       :primary-key? false :number 5 :name "address" :type "address"
+                                       :enum? false :type-specific-data -1}
+                                      "(\"NULL\",,)"))))
 
 (deftest array-with-null
   (is (= [nil 3 2]

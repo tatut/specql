@@ -156,7 +156,10 @@
                         val)]))))
           (sort-by (comp :number second) cols))))
 
-(defmulti parse-value (fn [t str] t))
+(defmulti parse-value (fn [t str]
+                        (if (= str "NULL")
+                          "NULL"
+                          t)))
 (defmethod parse-value "int4" [_ string]
   (Long/parseLong string))
 (defmethod parse-value "int8" [_ string]
@@ -184,6 +187,9 @@
   (if (str/blank? v)
     nil
     (= "t" v)))
+
+(defmethod parse-value "NULL" [_ v]
+  nil)
 
 (defn- pg-datetime-format []
   (java.text.SimpleDateFormat. "yyyy-MM-dd HH:mm:ss"))

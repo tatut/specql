@@ -247,10 +247,12 @@
                 (case (:type composite-or-enum-type)
                   :composite
                   ;; Parse a composite value
-                  (partial parse-composite table-info-registry composite-or-enum-type)
+                  #(when-not (nil? %)
+                     (parse-composite table-info-registry composite-or-enum-type %))
 
                   :enum
-                  (comp from-sql (partial parse-enum (:values composite-or-enum-type)))))
+                  #(when-not (nil? %)
+                     ((comp from-sql (partial parse-enum (:values composite-or-enum-type))) %))))
               #(when-not (nil? %)
                  (parse-value element-type %)))]
         (into []

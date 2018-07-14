@@ -652,16 +652,14 @@
                             :recipients
                             [(rcpt "Max Syöttöpaine" "Kujatie 1" "90100" "FI")
                              (rcpt "Erno Penttikoski" "Tiekuja 3" "90666" "FI")
-                             (rcpt "Henna Lindberg" "Tiekuja 5" "4242" "FI")]}
+                             (rcpt "Henna Lindberg" "Kujakuja 5" "4242" "FI")]}
               #:mailinglist{:name "Advertising list"
                             :recipients
                             [nil
-                             #:recipient{:name "Kekkonen"
-                                         :address nil}]}])
-          (first
-           (fetch db :mailinglist/mailinglist
-                  #{:mailinglist/name :mailinglist/recipients}
-                  {}))))))
+                             #:recipient{:name "Kekkonen"}]}]
+             (fetch db :mailinglist/mailinglist
+                    #{:mailinglist/name :mailinglist/recipients}
+                    {}))))))
 
 (deftest update-column-to-null
   (let [company #(first (fetch db :company/companies

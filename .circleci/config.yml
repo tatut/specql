@@ -13,5 +13,5 @@ jobs:
       - save_cache:
           paths:
             - ~/.m2
-          key: specql-{{ cheksum "project.clj" }}
+          key: specql-{{ checksum "project.clj" }}
       - run: lein test

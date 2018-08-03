@@ -39,7 +39,7 @@ See the [docs](https://tatut.github.io/specql) for more examples.
        ;; the columns to return
        #{:employee/id :employee/name :employee/title :employee/address}
        ;; the where clause
-       {::employee/id 1})
+       {:employee/id 1})
 ;; => ({:employee/id 1
 ;;      :employee/name "Wile E. Coyote"
 ;;      :employee/title "Super genius"

@@ -101,8 +101,11 @@
                       (xf/transform-spec transform type-spec)
                       type-spec)]
       `(s/def ~kw ~(cond
-                     array?
+                     (and array? (:not-null? column))
                      `(s/coll-of ~type-spec)
+
+                     array?
+                     `(s/nilable (s/coll-of ~type-spec))
 
                      (not (:not-null? column))
                      `(s/nilable ~type-spec)

@@ -45,6 +45,12 @@
         (map :typname (jdbc/query db [ "SELECT distinct(typname) from pg_type"])))
 
 
+(defrecord Range [lower upper lower-inclusive? upper-inclusive?])
+
+(s/def ::int4range (s/and #(instance? Range %)
+                          #(or (nil? (:lower %)) (integer? (:lower %)))
+                          #(or (nil? (:upper %)) (integer? (:upper %)))))
+
 (def db-types
   #{::int2 ::int4 ::int8 ::float8 ::numeric
     ::varchar ::text ::bpchar
@@ -53,7 +59,8 @@
     ::uuid
     ::bytea
     ::point ::geometry
-    ::jsonb})
+    ::jsonb
+    ::int4range})
 
 (defn db-type? [type]
   (contains? db-types type))

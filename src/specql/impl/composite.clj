@@ -228,6 +228,20 @@
 (defmethod parse-value "date" [_ string]
   (pg-date string))
 
+(def ^:const range-pattern
+  #"^(\(|\[)([^,]*),(.*)(\)|\])$")
+
+(defmethod parse-value "int4range" [_ string]
+  (let [[m lower-type lower upper upper-type]
+        (re-matches range-pattern string)]
+    (when m
+      (d/->Range (when-not (str/blank? lower)
+                   {:lower (Integer/parseInt lower)})
+                 (when-not (str/blank? upper)
+                   {:upper (Integer/parseInt upper)})
+                 (= "[" lower-type)
+                 (= "]" upper-type)))))
+
 ;; FIXME: support all types here as well
 
 (defn parse-enum [values element]
@@ -283,6 +297,13 @@
   (if (nil? val)
     ""
     (.format ^java.text.SimpleDateFormat (pg-date-format) val)))
+
+(defmethod stringify-value "int4range" [_ {:keys [lower upper lower-inclusive? upper-inclusive?]}]
+  (str (if lower-inclusive? "[" "(")
+       lower
+       ","
+       upper
+       (if upper-inclusive? "]" ")")))
 
 (defmethod stringify-value "point" [_ vals]
   ;; [x,y] vector to "(x,y)" string

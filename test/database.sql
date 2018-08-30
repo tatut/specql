@@ -256,3 +256,26 @@ CREATE TABLE my_things (
 --   "ordered-at" DATETIME NOT NULL,
 --   "customer-id" INTEGER REFERENCES customer (id)
 -- );
+
+
+--------------------------------
+-- Range test types and tables
+
+CREATE TYPE part_price_range AS (
+  "part-name" TEXT,
+  "part-price-range" int4range
+);
+
+CREATE TABLE price_range (
+  name TEXT,
+  "total-range" int4range,
+  "part-price-ranges" part_price_range[]
+);
+
+INSERT INTO price_range
+       (name, "total-range", "part-price-ranges")
+VALUES ('medium systems vehicle',
+        '[1000,666000)'::int4range,
+	ARRAY[ROW('engine', '(0,10000]'::int4range)::part_price_range,
+	      ROW('cargo bay', '[123,99999]'::int4range)::part_price_range]::part_price_range[]);
+	      

@@ -157,6 +157,8 @@
           (sort-by (comp :number second) cols))))
 
 (defmulti parse-value (fn [t str] t))
+(defmethod parse-value "int2" [_ string]
+  (Integer/parseInt string))
 (defmethod parse-value "int4" [_ string]
   (Long/parseLong string))
 (defmethod parse-value "int8" [_ string]

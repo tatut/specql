@@ -237,7 +237,34 @@
                                       {:category "C" :not-null? false :has-default? false
                                        :primary-key? false :number 5 :name "address" :type "address"
                                        :enum? false :type-specific-data -1}
-                                      "({,,)"))))
+                                      "({,,)")))
+  (is (= #:address {:street "NULL"
+                    :postal-code ""}
+         (specql.impl.composite/parse @specql.impl.registry/table-info-registry
+                                      {:category "C" :not-null? false :has-default? false
+                                       :primary-key? false :number 5 :name "address" :type "address"
+                                       :enum? false :type-specific-data -1}
+                                      "(\"NULL\",\"\",)"))))
+
+(deftest array-with-null
+  (is (= [nil 3 2]
+         (specql.impl.composite/parse @specql.impl.registry/table-info-registry
+                                      {:category "A" :not-null? false :has-default? false
+                                       :primary-key? false :number 5 :type "_int4"
+                                       :enum? false}
+                                      "{NULL,3,2}")))
+  (is (= ["NULL" "3" "2"]
+         (specql.impl.composite/parse @specql.impl.registry/table-info-registry
+                                      {:category "A" :not-null? false :has-default? false
+                                       :primary-key? false :number 5 :type "_text"
+                                       :enum? false}
+                                      "{\"NULL\",\"3\",\"2\"}")))
+  (is (= [nil "3" "2"]
+         (specql.impl.composite/parse @specql.impl.registry/table-info-registry
+                                      {:category "A" :not-null? false :has-default? false
+                                       :primary-key? false :number 5 :type "_text"
+                                       :enum? false}
+                                      "{NULL,\"3\",\"2\"}"))))
 
 (deftest composite-array-with-brace
   (let [mailinglist {:mailinglist/name "a list"
@@ -621,15 +648,18 @@
                                               :postal-code postal
                                               :country country}})]
     (testing "Values in arrays are parsed"
-      (is (= #:mailinglist{:name "Fake News Quarterly"
-                           :recipients
-                           [(rcpt "Max Syöttöpaine" "Kujatie 1" "90100" "FI")
-                            (rcpt "Erno Penttikoski" "Tiekuja 3" "90666" "FI")
-                            (rcpt "Henna Lindberg" "Tiekuja 5" "4242" "FI")]})
-          (first
-           (fetch db :mailinglist/mailinglist
-                  #{:mailinglist/name :mailinglist/recipients}
-                  {}))))))
+      (is (= [#:mailinglist{:name "Fake News Quarterly"
+                            :recipients
+                            [(rcpt "Max Syöttöpaine" "Kujatie 1" "90100" "FI")
+                             (rcpt "Erno Penttikoski" "Tiekuja 3" "90666" "FI")
+                             (rcpt "Henna Lindberg" "Kujakuja 5" "4242" "FI")]}
+              #:mailinglist{:name "Advertising list"
+                            :recipients
+                            [nil
+                             #:recipient{:name "Kekkonen"}]}]
+             (fetch db :mailinglist/mailinglist
+                    #{:mailinglist/name :mailinglist/recipients}
+                    {}))))))
 
 (deftest update-column-to-null
   (let [company #(first (fetch db :company/companies

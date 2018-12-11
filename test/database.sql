@@ -132,7 +132,9 @@ VALUES ('Fake News Quarterly',
          ROW('Max Syöttöpaine', ROW('Kujatie 1','90100','FI')::address)::recipient,
          ROW('Erno Penttikoski', ROW('Tiekuja 3','90666','FI')::address)::recipient,
 	 ROW('Henna Lindberg', ROW('Kujakuja 5','4242','FI')::address)::recipient
-        ]::recipient[]);
+        ]::recipient[]),
+        ('Advertising list', ARRAY[
+        NULL::recipient, ROW('Kekkonen', NULL::address)::recipient]::recipient[]);
 
 --- complex composite
 

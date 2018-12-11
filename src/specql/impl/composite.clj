@@ -106,35 +106,39 @@
       [(subs elements start-idx idx) (inc idx)]
       (recur (inc idx)))))
 
-(defn- split-elements [^String elements ^long idx]
-  (let [end (.length elements)]
-    (loop [acc []
-           idx 0]
-      (if (>= idx end)
-        acc
-        (let [ch (.charAt elements idx)]
-          (cond
-            ;; Read quoted value
-            (= \" ch)
-            (let [[elt ^long new-idx] (quoted elements idx)]
-              (recur (conj acc elt)
-                     (inc new-idx)))
+(defn- split-elements
+  ([^String elements ^long idx] (split-elements elements idx false))
+  ([^String elements ^long idx return-nil?]
+   (let [end (.length elements)]
+     (loop [acc []
+            idx 0]
+       (if (>= idx end)
+         acc
+         (let [ch (.charAt elements idx)]
+           (cond
+             ;; Read quoted value
+             (= \" ch)
+             (let [[elt ^long new-idx] (quoted elements idx)]
+               (recur (conj acc elt)
+                      (inc new-idx)))
 
-            (= \( ch)
-            (let [[elt ^long new-idx] (matching elements \( \) idx)]
-              (recur (conj acc (str "(" elt ")"))
-                     (inc new-idx)))
+             (= \( ch)
+             (let [[elt ^long new-idx] (matching elements \( \) idx)]
+               (recur (conj acc (str "(" elt ")"))
+                      (inc new-idx)))
 
-            ;; At "," character, this is an empty value
-            (= \, ch)
-            (recur (conj acc nil)
-                   (inc idx))
+             ;; At "," character, this is an empty value
+             (= \, ch)
+             (recur (conj acc nil)
+                    (inc idx))
 
-            ;; Read non-quoted value
-            :default
-            (let [[elt ^long new-idx] (until elements idx #(= % \,))]
-              (recur (conj acc elt)
-                     (long new-idx)))))))))
+             ;; Read non-quoted value
+             :default
+             (let [[elt ^long new-idx] (until elements idx #(= % \,))]
+               (recur (conj acc (if (and return-nil?
+                                         (= elt "NULL"))
+                                  nil elt))
+                      (long new-idx))))))))))
 
 (declare parse)
 
@@ -155,6 +159,7 @@
                         (xf/from-sql xf val)
                         val)]))))
           (sort-by (comp :number second) cols))))
+
 
 (defmulti parse-value (fn [t str] t))
 (defmethod parse-value "int2" [_ string]
@@ -235,8 +240,8 @@
 (defn parse [table-info-registry type string]
   (try
     (if (= "A" (:category type))
-      (let [elements (split-elements (first (matching string \{ \} 0)) 0)
-            ;;_ (println "ELEMENTS: " elements)
+      (let [elements (split-elements (first (matching string \{ \} 0)) 0 true)
+            element-type (subs (:type type) 1)
             element-parser
             (if-let [composite-or-enum-type (table-info-registry (:element-type type))]
               (let [xf (-> composite-or-enum-type :rel ::xf/transform)
@@ -244,13 +249,14 @@
                 (case (:type composite-or-enum-type)
                   :composite
                   ;; Parse a composite value
-                  (partial parse-composite table-info-registry composite-or-enum-type)
+                  #(when-not (nil? %)
+                     (parse-composite table-info-registry composite-or-enum-type %))
 
                   :enum
-                  (comp from-sql (partial parse-enum (:values composite-or-enum-type)))))
-
-              (partial parse-value
-                       (subs (:type type) 1)))]
+                  #(when-not (nil? %)
+                     ((comp from-sql (partial parse-enum (:values composite-or-enum-type))) %))))
+              #(when-not (nil? %)
+                 (parse-value element-type %)))]
         (into []
               (map element-parser)
               elements))

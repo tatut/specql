@@ -3,7 +3,7 @@
 
 # specql
 
-An EXPERIMENTAL library for simple PostgreSQL queries with namespaced keys.
+A library for simple PostgreSQL queries with namespaced keys.
 
 specql introspects your database at compile time and generates clojure.spec definitions for the rows
 and all the columns.
@@ -50,6 +50,10 @@ See the [docs](https://tatut.github.io/specql) for more examples.
 ```
 
 # Changes
+
+### 20181211
+
+* Support "int2" type in composite parsing
 
 ### 20180706
 

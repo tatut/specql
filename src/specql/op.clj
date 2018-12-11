@@ -20,8 +20,8 @@
       s)))
 
 (defmacro defoperator [sym sql-template]
-  (let [optype (symbol (str "Op" (name sym)))
-        optype-cons (symbol (str "->Op" (name sym)))
+  (let [optype (gensym "Op")
+        optype-cons (symbol (str "->" (name optype)))
         val (gensym "val")
         arg (gensym "arg")
         param (gensym "param")]

@@ -51,6 +51,10 @@ See the [docs](https://tatut.github.io/specql) for more examples.
 
 # Changes
 
+### 20181212
+
+* Fix AOT compilation issue on Windows (no functionality changes)
+
 ### 20181211
 
 * Support "int2" type in composite parsing

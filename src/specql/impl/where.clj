@@ -25,27 +25,27 @@
                    (into params record-params)
                    records)))))))
 
+(defn- add-where [{:keys [:clause :parameters] :as where}
+                  {transform ::xf/transform :keys [enum? type] :as column}
+                  column-accessor column-keyword value]
+  (if (satisfies? op/Op value)
+    ;; This is an operator, call to-sql to create SQL clause and params
+    (let [[cl params] (op/to-sql value column-accessor column)]
+      (assoc where
+             :clause (conj clause cl)
+             :parameters (into parameters params)))
+    ;; Plain old value, assert that it is valid and create = comparison
+    (assoc where
+           :clause (conj clause
+                         (str column-accessor " = ?"
+                              (when enum?
+                                (str "::" type))))
+           :parameters (conj parameters
+                             (transform-value-to-sql column (assert-spec column-keyword value))))))
+
 (defn- where-map [table-info-registry path->table record path-prefix]
   (let [{:keys [table alias]} (path->table path-prefix)
-        table-columns (-> table table-info-registry :columns)
-        ;record (transform-to-sql table-info-registry (table-info-registry table) record)
-        add-where (fn [{:keys [:clause :parameters] :as where}
-                       {transform ::xf/transform :keys [enum? type] :as column}
-                       column-accessor column-keyword value]
-                    (if (satisfies? op/Op value)
-                      ;; This is an operator, call to-sql to create SQL clause and params
-                      (let [[cl params] (op/to-sql value column-accessor column)]
-                        (assoc where
-                               :clause (conj clause cl)
-                               :parameters (into parameters params)))
-                      ;; Plain old value, assert that it is valid and create = comparison
-                      (assoc where
-                             :clause (conj clause
-                                           (str column-accessor " = ?"
-                                                (when enum?
-                                                  (str "::" type))))
-                             :parameters (conj parameters
-                                               (transform-value-to-sql column (assert-spec column-keyword value))))))]
+        table-columns (-> table table-info-registry :columns)]
     (as-> (reduce
            (fn [where [column-keyword value]]
              ;; If column is a joined table, it has a mapping in path->table.

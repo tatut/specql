@@ -1024,3 +1024,17 @@
                         (op/like "Max%"))
                       (when false
                         (op/like "%ne")))})))))
+
+
+(deftest fetch-where-by-joined-entity
+  (testing "Joined entity column in where clause"
+    (is (= (into #{}
+                 (map #(dissoc % :employee/department))
+                 (fetch db :employee/employees #{:employee/id :employee/name
+                                                     [:employee/department #{:department/name}]}
+                        {:employee/department {:department/name "R&D"}}))
+
+           (into #{}
+                 ;; Same query but using direct id (but without department)
+                 (fetch db :employee/employees #{:employee/id :employee/name}
+                        {:employee/department-id 1}))))))

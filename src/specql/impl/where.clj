@@ -64,10 +64,11 @@
                                              :columns))]
     ;; composite type: add all fields as separate clauses
     (reduce (fn [where [kw val]]
-              (assert (composite-columns kw)
-                      (str "Unknown column in where clause: no "
-                           kw " in composite type "
-                           (composite-type table-info-registry (:type column))))
+              (when-not (composite-columns kw)
+                (throw (ex-info (str "Unknown column in where clause"
+                                     {:column kw
+                                      :composite-type (composite-type table-info-registry
+                                                                      (:type column))}))))
               (add-where where
                          (composite-columns kw)
                          (str "(" alias ".\"" col-name "\").\""
@@ -89,7 +90,10 @@
 
           ;; This is a column in the current table
           (let [{col-name :name :as column} (column-keyword table-columns)]
-            (assert column (str "Unknown column in where clause: no " column-keyword " in table " table))
+            (when-not column
+              (throw (ex-info "Unknown column in where clause"
+                              {:column column-keyword
+                               :table table})))
             (or (composite-columns-where table-info-registry where alias column value)
                 ;; normal column
                 (add-where where (table-columns column-keyword)

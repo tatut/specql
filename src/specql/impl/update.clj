@@ -37,7 +37,9 @@
 (defn refresh! [db table]
   (assert-table table)
   (let [{:keys [name type]} (@registry/table-info-registry table)]
-    (assert (= type :materialized-view)
-            (str "refresh! can only be called on a materialized view. " table " is a " type))
+    (when-not (= type :materialized-view)
+      (throw (ex-info "refresh! can only be called on a materialized view."
+                      {:table table
+                       :type type})))
     (jdbc/execute! db [(str "REFRESH MATERIALIZED VIEW " (q name))])
     :specql.core/ok))

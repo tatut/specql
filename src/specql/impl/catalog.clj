@@ -75,8 +75,9 @@
     (if (empty? relkind)
       ;; Not a table or composite type, try an enum
       (let [values (enum-values db name)]
-        (assert (not (empty? values))
-                (str "Don't know what " name " is. Not a table, composite type or enum."))
+        (when (empty? values)
+          (throw (ex-info (str "Don't know what " name " is. Not a table, composite type or enum.")
+                          {:unknown-db-object name})))
         {:name name
          :type :enum
          :values values})

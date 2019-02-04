@@ -7,15 +7,18 @@
             [clojure.java.jdbc :as jdbc]))
 
 (defn assert-spec
-  "Unconditionally assert that value is valid for spec. Returns value."
+  "Unconditionally assert that value is valid for spec.
+  Throws exception if value is not valid, otherwise returns value."
   [spec value]
-  (assert (s/valid? spec value)
-          (s/explain-str spec value))
+  (when-not (s/valid? spec value)
+    (throw (ex-info "Spec validation failed"
+                    (s/explain-data spec value))))
   value)
 
 (defn assert-table [table]
-  (assert (@registry/table-info-registry table)
-          (str "Unknown table " table ", call define-tables!")))
+  (when-not (@registry/table-info-registry table)
+    (throw (ex-info "Unknown table, call define-tables!"
+                    {:table table}))))
 
 (defn q
   "Surround string with doublequotes"
@@ -51,7 +54,10 @@
      (fn [cols [column-kw result-path]]
        (let [col (table-columns column-kw)
              name (:name col)]
-         (assert name (str "Unknown column " column-kw " for table " table))
+         (when-not name
+           (throw (ex-info (str "Unknown column " column-kw " for table " table)
+                           {:column-kw column-kw
+                            :table table})))
          (assoc cols
                 (keyword (alias-fn name))
                 [(str table-alias ".\"" name "\"") result-path col])))
@@ -96,7 +102,10 @@
       (if-not column-kw
         [names value-names value-parameters]
         (let [column (table-columns column-kw)]
-          (assert column (str "Unknown column " (pr-str column-kw) " for table " (pr-str table)))
+          (when-not column
+            (throw (ex-info "Unknown column "
+                            {:column-kw  column-kw
+                             :table table})))
           (cond
             ;; This is an array, serialize
             (= "A" (:category column))
@@ -139,5 +148,5 @@
   (try
     (jdbc/get-connection db)
     (catch Exception e
-      (assert false (str "Unable to establish database connection to: " (pr-str db)
-                         ".\n" (.getName (class e)) ": " (.getMessage e))))))
+      (throw (ex-info "Unable to establish database connection"
+                      {:db db} e)))))

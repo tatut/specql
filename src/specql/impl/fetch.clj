@@ -30,8 +30,9 @@
     add-primary-table? path-prefix]
    (let [{primary-table-columns :columns :as primary-table-info}
          (table-info-registry primary-table)]
-     (assert primary-table-info
-             (str "Unknown table " primary-table ", call define-tables!"))
+     (when-not primary-table-info
+       (throw (ex-info "Unknown table, call define-tables!"
+                       {:table primary-table})))
      (loop [;; start with the primary table and all fields that are not joins
             table (when add-primary-table?
                     [[primary-table primary-table-alias nil nil
@@ -50,9 +51,10 @@
                rel (-> table-info-registry
                        primary-table
                        :rel join-field)
-               _ (assert rel
-                         (str "Don't know how to fetch joined " join-field ". "
-                              "Add missing relations in define-tables call."))
+               _ (when-not rel
+                   (throw (ex-info (str "Don't know how to fetch joined " join-field ". "
+                                        "Add missing relations in define-tables call.")
+                                   {:join-field join-field})))
                this-table-column
                (-> rel ::rel/this-table-column primary-table-columns)
                join-type (if (and (not= ::rel/has-many
@@ -242,23 +244,25 @@
                  {order :specql.core/order-by
                   direction :specql.core/order-direction}]
   (when direction
-    (assert (some? order)
-            "Order direction specified without an order-by column!"))
+    (when-not (some? order)
+      (throw (ex-info "Order direction specified without an order-by column!"))))
   (when order
     (let [order-column (get columns order)
           alias (some (fn [[_ alias _ _ columns]]
                         (when (contains? columns order)
                           alias))
                       table-alias)]
-      (assert (some? order-column)
-              (str "Unknown order column: " order))
+      (when-not (some? order-column)
+        (throw (ex-info "Unknown order column"
+                        {:order-by order})))
 
       (str " ORDER BY " (when alias
                           (str alias ".")) (q (:name order-column))
            (case direction
              (:asc :ascending nil) " ASC"
              (:desc :descending) " DESC"
-             (assert false (str "Unrecognized order direction: " direction)))))))
+             (throw (ex-info "Unrecognized order direction"
+                             {:direction direction})))))))
 
 (defn- limit-offset [{limit :specql.core/limit
                       offset :specql.core/offset}]
@@ -270,9 +274,9 @@
 
 (defn fetch [db table columns where options]
   (assert-table table)
-  (assert (and (set? columns)
-               (seq columns))
-          "Columns must be a non-empty set")
+  (when-not (and (set? columns)
+                 (seq columns))
+    (throw (ex-info "Columns must be a non-empty set")))
   (let [table-info-registry @registry/table-info-registry
         {table-name :name table-columns :columns :as table-info}
         (table-info-registry table)

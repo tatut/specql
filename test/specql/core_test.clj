@@ -73,7 +73,7 @@
      ~@body
      (is false "No ex-info thrown")
      (catch clojure.lang.ExceptionInfo e#
-       (is (re-matches ~msg-regex (.getMessage e#))))))
+       (is (re-find ~msg-regex (.getMessage e#))))))
 
 (deftest tables-have-been-created
   ;; If test data has been inserted, we know that all tables were create

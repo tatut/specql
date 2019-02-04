@@ -69,9 +69,11 @@
   )
 
 (defmacro ex-info-thrown [msg-regex & body]
-  `(is (~'thrown-with-msg?
-        clojure.lang.ExceptionInfo ~msg-regex
-        (do ~@body))))
+  `(try
+     ~@body
+     (is false "No ex-info thrown")
+     (catch clojure.lang.ExceptionInfo e#
+       (is (re-matches ~msg-regex (.getMessage e#))))))
 
 (deftest tables-have-been-created
   ;; If test data has been inserted, we know that all tables were create

@@ -68,9 +68,9 @@
   ["mailinglist" :mailinglist/mailinglist]
   )
 
-(defmacro asserted [msg-regex & body]
+(defmacro ex-info-thrown [msg-regex & body]
   `(is (~'thrown-with-msg?
-        AssertionError ~msg-regex
+        clojure.lang.ExceptionInfo ~msg-regex
         (do ~@body))))
 
 (deftest tables-have-been-created
@@ -684,14 +684,14 @@
     (eval form)))
 
 (deftest typeclash
-  (asserted
+  (ex-info-thrown
    #":typeclash/start is already defined as \"timestamp\" and now trying to define it as \"time\""
    (eval-ns '(define-tables define-db
                ["typeclash1" :typeclash/one]
                ["typeclash2" :typeclash/two]))))
 
 (deftest nameclash
-  (asserted
+  (ex-info-thrown
    #"Table :nameclash/nameclash1 is also defined as a column"
    (eval-ns '(define-tables define-db
                ["nameclash1" :nameclash/nameclash1]
@@ -700,28 +700,28 @@
 ;; Tests for typos / errors in calling specql
 (deftest errors
   (testing "Invalid columns set"
-    (asserted #"Columns must be a non-empty set"
-              (fetch db :employee/employees #{} {}))
-    (asserted #"Columns must be a non-empty set"
-              (fetch db :employee/employees [:this :is :not :a :set] {})))
+    (ex-info-thrown #"Columns must be a non-empty set"
+                    (fetch db :employee/employees #{} {}))
+    (ex-info-thrown #"Columns must be a non-empty set"
+                    (fetch db :employee/employees [:this :is :not :a :set] {})))
 
   (testing "Invalid define-tables is caught"
-    (asserted #"\"options\" fails spec"
-              (eval-ns '(define-tables define-db
+    (ex-info-thrown #"\"options\" fails spec"
+                    (eval-ns '(define-tables define-db
                           ["foo" :bar/sky
                            "options" :not-a-map])))
 
-    (asserted #":tbl fails spec"
-              (eval-ns '(define-tables define-db
+    (ex-info-thrown #":tbl fails spec"
+                    (eval-ns '(define-tables define-db
                           [:tbl "bar"])))
 
-    (asserted #"\"tablename\" fails spec"
-              (eval-ns '(define-tables define-db
+    (ex-info-thrown #"\"tablename\" fails spec"
+                    (eval-ns '(define-tables define-db
                           ;; not in vector
                           "tablename" :table/keyword))))
 
   (testing "Unknown JOIN throws error"
-    (asserted
+    (ex-info-thrown
      #"Don't know how to fetch joined :deparment/no-such-join"
      (fetch db :department/departments
             #{:department/id
@@ -729,7 +729,7 @@
             {})))
 
   (testing "Concise reporting of SQL connection errors"
-    (asserted
+    (ex-info-thrown
      #"Unable to establish database connection to: "
      (eval-ns '(define-tables {:connection-uri "jdbc:postgresql://no-such-host:666/mydb"}
                  ["foo" :foo/bar])))))
@@ -858,11 +858,11 @@
                 (titles {::specql/order-by :issue/id
                          ::specql/order-direction :desc}))))))
     (testing "Unknown column throws error"
-      (asserted #"Unknown order column: :issue/no-such-column"
-                (titles {::specql/order-by :issue/no-such-column})))
+      (ex-info-thrown #"Unknown order column: :issue/no-such-column"
+                      (titles {::specql/order-by :issue/no-such-column})))
     (testing "Direction without column"
-      (asserted #"direction specified without an order-by"
-                (titles #{::specql/order-direction :asc})))))
+      (ex-info-thrown #"direction specified without an order-by"
+                      (titles #{::specql/order-direction :asc})))))
 
 (deftest limit
   ;; Insert some test data
@@ -938,7 +938,7 @@
          (eval-ns '(s/describe :underscores/foo-bar)))))
 
   (testing "invalid column name transformation fn"
-    (asserted
+    (ex-info-thrown
      #"Column names must be ns qualified keywords"
      (eval-ns '(define-tables {:specql.core/transform-column-name
                                (fn [ns name]
@@ -990,8 +990,8 @@
              (fetch-view))))
 
     (testing "Trying to refresh a table will throw"
-      (asserted #":employee/employees is a :table"
-                (refresh! db :employee/employees)))))
+      (ex-info-thrown #":employee/employees is a :table"
+                      (refresh! db :employee/employees)))))
 
 (deftest update-with-empty-where-clause
   (is (not (empty? (fetch db :employee/employees #{:employee/id}

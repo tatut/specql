@@ -245,7 +245,7 @@
                   direction :specql.core/order-direction}]
   (when direction
     (when-not (some? order)
-      (throw (ex-info "Order direction specified without an order-by column!"))))
+      (throw (ex-info "Order direction specified without an order-by column!" {}))))
   (when order
     (let [order-column (get columns order)
           alias (some (fn [[_ alias _ _ columns]]
@@ -276,7 +276,7 @@
   (assert-table table)
   (when-not (and (set? columns)
                  (seq columns))
-    (throw (ex-info "Columns must be a non-empty set")))
+    (throw (ex-info "Columns must be a non-empty set" {})))
   (let [table-info-registry @registry/table-info-registry
         {table-name :name table-columns :columns :as table-info}
         (table-info-registry table)

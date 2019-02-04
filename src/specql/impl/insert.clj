@@ -79,7 +79,8 @@
         conflict-target-column? (into #{} conflict-target)
 
         _ (when (empty? conflict-target)
-            (throw (ex-info "No conflict target, if table has no primary key, specify a column set")))
+            (throw (ex-info "No conflict target, if table has no primary key, specify a column set"
+                            {:table table})))
         _ (when-not (every? string? conflict-target)
             (throw (ex-info "Unknown columns in conflict target"
                             {:conflict-keys conflict-keys})))

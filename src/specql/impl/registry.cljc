@@ -96,9 +96,9 @@
   (when transform-column-name
     (fn [ns name]
       (let [column-name (transform-column-name ns name)]
-        (assert (qualified-keyword? column-name)
-                (str "Column names must be ns qualified keywords, transform-column-name fn returned: "
-                     column-name))
+        (when-not (qualified-keyword? column-name)
+          (throw (ex-info "Column names must be ns qualified keywords."
+                          {:transform-column-name-result column-name})))
         column-name))))
 
 (defn process-columns [{columns :columns :as table-info} ns-name column-options-map

@@ -732,7 +732,7 @@
 
   (testing "Concise reporting of SQL connection errors"
     (ex-info-thrown
-     #"Unable to establish database connection to: "
+     #"Unable to establish database connection"
      (eval-ns '(define-tables {:connection-uri "jdbc:postgresql://no-such-host:666/mydb"}
                  ["foo" :foo/bar])))))
 

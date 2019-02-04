@@ -93,12 +93,12 @@
                           :title "Super genious"}))))
 
 (deftest query-unknown-table-or-column
-  (is (thrown? AssertionError
+  (is (thrown? clojure.lang.ExceptionInfo
                (specql.core/fetch db
                                   :foo/bar
                                   #{:foo/baz :foo/quux}
                                   {})))
-  (is (thrown? AssertionError
+  (is (thrown? clojure.lang.ExceptionInfo
                (specql.core/fetch db
                                   :employee/employees
                                   #{:employee/foo}
@@ -107,25 +107,25 @@
 (deftest query-with-invalid-parameter
   (let [x "foo"]
     (is (thrown-with-msg?
-         AssertionError #"val: \"foo\" fails spec: :employee/id"
+         clojure.lang.ExceptionInfo #"val: \"foo\" fails spec: :employee/id"
          (fetch db :employee/employees
                 #{:employee/name}
                 {:employee/id x})))))
 
 (deftest query-with-unknown-where-column
   (is (thrown-with-msg?
-       AssertionError #"no :address/country in table :employee/employees"
+       clojure.lang.ExceptionInfo #"no :address/country in table :employee/employees"
        (fetch db :employee/employees #{:employee/name}
               ;; :address/country is a valid column, but not in this table
               {:address/country "FI"})))
 
   (is (thrown-with-msg?
-       AssertionError #"no :employee/name in composite type :address/address"
+       clojure.lang.ExceptionInfo #"no :employee/name in composite type :address/address"
        (fetch db :employee/employees #{:employee/name}
               {:employee/address {:employee/name "Address has no name"}})))
 
   (is (thrown-with-msg?
-       AssertionError #"no :address/country in table :employee/employees"
+       clojure.lang.ExceptionInfo #"no :address/country in table :employee/employees"
        (fetch db :employee/employees #{:employee/name}
               {:address/country (op/in #{"FI"})}))))
 
@@ -154,13 +154,13 @@
   (testing "trying to insert invalid data"
     ;; Name field is NOT NULL, so insertion should fail
     (is (thrown-with-msg?
-         AssertionError #"contains\? % :employee/name"
+         clojure.lang.ExceptionInfo #"contains\? % :employee/name"
          (insert! db :employee/employees
                   {:employee/title "I have no name!"
                    :employee/employment-started (java.util.Date.)})))
 
     (is (thrown-with-msg?
-         AssertionError #"val: 42 fails spec"
+         clojure.lang.ExceptionInfo #"val: 42 fails spec"
          (insert! db :employee/employees
                   {:employee/name "Foo"
                    :employee/employment-started (java.util.Date.)
@@ -174,7 +174,7 @@
 
   (testing "insert record with composite value"
     (is (thrown-with-msg?
-         AssertionError #"predicate: .*\(<= \(count"
+         clojure.lang.ExceptionInfo #"predicate: .*\(<= \(count"
          (insert! db :employee/employees
                   {:employee/name "too long addr"
                    :employee/employment-started (java.util.Date.)
@@ -200,7 +200,7 @@
 
       ;; Check that validation failures in composite types are detected
       (is (thrown-with-msg?
-           AssertionError #"val: 666 fails"
+           clojure.lang.ExceptionInfo #"val: 666 fails"
            (insert! db :employee/employees
                     {:employee/name "Frob"
                      :employee/address (assoc addr
@@ -497,13 +497,13 @@
 
   (testing "delete with an empty clause will throw"
     (is (thrown-with-msg?
-         AssertionError #"empty where clause"
+         clojure.lang.ExceptionInfo #"empty where clause"
          (delete! db :employee/employees
                   {}))))
 
   (testing "delete from an unknown table"
     (is (thrown-with-msg?
-         AssertionError #"Unknown table"
+         clojure.lang.ExceptionInfo #"Unknown table"
          (delete! db :foo/bar {:foo/id 1}))))
 
   (testing "delete quotes table name propery"
@@ -525,7 +525,7 @@
 
   (testing "update unknown columns"
     (is (thrown-with-msg?
-         AssertionError #"Unknown column :employee/no-such-field"
+         clojure.lang.ExceptionInfo #"Unknown column :employee/no-such-field"
          (update! db :employee/employees
                   {:employee/name "foo"
                    :employee/no-such-field "bar"}
@@ -599,7 +599,7 @@
                                         :note "NOTE CHANGED"}]
 
         (is (thrown-with-msg?
-             AssertionError #"No conflict target"
+             clojure.lang.ExceptionInfo #"No conflict target"
              ;; upsert fails, table has no primary key and we havent
              ;; specified a conflict target
              (upsert! db :department-meeting-notes/notes changed-note)))

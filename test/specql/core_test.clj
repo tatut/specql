@@ -1040,8 +1040,8 @@
                         {:employee/department-id 1}))))))
 
 (define-tables define-db
-  ["composite_key" ::comp-key/key]
-  ["table_with_composite_key" ::comp-key/table])
+  ["composite_key" :comp-key/key]
+  ["table_with_composite_key" :comp-key/table])
 
 (deftest upsert-entity-with-composite-key
   (testing "Upserting entity with composite type as primary key"

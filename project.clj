@@ -1,4 +1,4 @@
-(defproject specql/specql "20181212"
+(defproject specql/specql "20190301"
   :description "PostgreSQL spec query language"
   :license {:name "MIT License"}
   :url "https://tatut.github.io/specql/"

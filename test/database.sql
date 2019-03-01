@@ -201,7 +201,16 @@ CREATE TABLE my_things (
 );
 
 
+-- Testing composite type as primary key
+CREATE TYPE composite_key AS (
+  local_id UUID,
+  remote_id BIGINT
+);
 
+CREATE TYPE table_with_composite_key (
+  id composite_key,
+  name TEXT
+);
 
 -- Some tables for multiple has-many join tests
 

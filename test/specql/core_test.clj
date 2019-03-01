@@ -1038,3 +1038,14 @@
                  ;; Same query but using direct id (but without department)
                  (fetch db :employee/employees #{:employee/id :employee/name}
                         {:employee/department-id 1}))))))
+
+(define-tables define-db
+  ["composite_key" ::comp-key/key]
+  ["table_with_composite_key" ::comp-key/table])
+
+(deftest upsert-entity-with-composite-key
+  (testing "Upserting entity with composite type as primary key"
+    (let [row {:comp-key/id {:comp-key/local_id (java.util.UUID/randomUUID)}
+               :comp-key/name "This is my row"}
+          upserted (upsert! db :comp-key/table row)]
+      (is (= row upserted)))))

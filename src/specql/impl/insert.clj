@@ -135,6 +135,15 @@
       (let [result (first (jdbc/query db sql-and-params))]
         (when result
           (reduce (fn [record [resultset-kw [_ output-kw]]]
-                    (assoc-in record output-kw (result resultset-kw)))
+                    (assoc-in record output-kw
+                              (let [v (result resultset-kw)
+                                    id-kw (when (= 1 (count output-kw))
+                                            (first output-kw))
+                                    {category :category :as col} (when id-kw
+                                                                   (-> table-info-registry table :columns id-kw))]
+                                (if (= "C" category)
+                                  ;; Key is a composite type that needs parsing
+                                  (composite/parse table-info-registry col (.getValue v))
+                                  v))))
                   original-record
                   cols))))))

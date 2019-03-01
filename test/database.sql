@@ -207,7 +207,7 @@ CREATE TYPE composite_key AS (
   remote_id BIGINT
 );
 
-CREATE TYPE table_with_composite_key (
+CREATE TABLE table_with_composite_key (
   id composite_key,
   name TEXT
 );

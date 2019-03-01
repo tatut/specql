@@ -51,6 +51,10 @@ See the [docs](https://tatut.github.io/specql) for more examples.
 
 # Changes
 
+### 20190301
+
+* Fix composite type as primary key in `upsert!`
+
 ### 20181212
 
 * Fix AOT compilation issue on Windows (no functionality changes)

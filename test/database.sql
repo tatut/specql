@@ -208,7 +208,7 @@ CREATE TYPE composite_key AS (
 );
 
 CREATE TABLE table_with_composite_key (
-  id composite_key,
+  id composite_key PRIMARY KEY,
   name TEXT
 );
 

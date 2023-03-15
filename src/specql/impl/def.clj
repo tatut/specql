@@ -7,7 +7,8 @@
             [specql.impl.registry :as registry :refer :all]
             [specql.impl.composite :as composite]
             [specql.impl.util :refer :all]
-            [clojure.java.jdbc :as jdbc]))
+            [clojure.java.jdbc :as jdbc]
+            [specql.impl.catalog :as catalog]))
 
 (s/def ::tables-definition
   (s/coll-of ::table-definition))
@@ -65,7 +66,7 @@
   (validate-column-types tables)
   (validate-table-names tables))
 
-(defn- type-spec [db table-info {:keys [category type] :as column}]
+(defn- type-spec [si table-info {:keys [category type] :as column}]
   (if (= "A" category)
     (:element-type column)
     (or (composite-type table-info type)
@@ -74,7 +75,7 @@
               ;; previously registered enum type
               (enum-type table-info type)
               ;; just the values as spec
-              (enum-values db type)))
+              (enum-values si type)))
 
         ;; varchar/text field with max length set
         (and (#{"text" "varchar"} type)
@@ -85,7 +86,7 @@
 
         (keyword "specql.data-types" type))))
 
-(defn- column-specs [db table-info columns]
+(defn- column-specs [si table-info columns]
   (for [[kw {type :type
              category :category
              transform ::xf/transform
@@ -94,7 +95,7 @@
               type (if array?
                      (subs type 1)
                      type)
-              type-spec (type-spec db table-info column)]
+              type-spec (type-spec si table-info column)]
         :when type-spec]
 
     (let [type-spec (if transform
@@ -154,19 +155,25 @@
   "See specql.core/define-tables for documentation."
   [db-or-options & tables]
   (let [db-or-options (eval db-or-options)
-        [db options] (if-let [db (:specql.core/db db-or-options)]
-                       [db db-or-options]
-                       [db-or-options {}])
+        [db* options] (cond
+                        (:specql.core/db db-or-options)
+                        [(:specql.core/db db-or-options) db-or-options]
+
+                        (:specql.core/schema-file db-or-options)
+                        [(:specql.core/schema-file db-or-options) db-or-options]
+
+                        :else
+                        [db-or-options {}])
+
         transform-column-name (:specql.core/transform-column-name options)]
-    (with-open [con (connect db)]
-      (let [db {:connection con}
-            tables (map merge-table-options
+    (with-open [si (catalog/->schema-info db*)]
+      (let [tables (map merge-table-options
                         (assert-spec ::tables-definition (map eval tables)))
             table-info (into {}
                              (map (fn [[table-name table-keyword opts]]
                                     (let [ns (name (namespace table-keyword))]
                                       [table-keyword
-                                       (-> (table-info db table-name)
+                                       (-> (table-info si table-name)
                                            (assoc :insert-spec-kw
                                                   (keyword ns (str (name table-keyword) "-insert")))
                                            (process-columns ns opts transform-column-name)
@@ -217,4 +224,4 @@
                                :opt [~@(keys optional-insert)]))
 
                      ;; Create specs for columns
-                     ~@(doall (column-specs db table-info columns)))))))))))
+                     ~@(doall (column-specs si table-info columns)))))))))))

@@ -84,20 +84,19 @@
                    (jdbc/query db# sql-and-args#)))))))))
 
 (defmacro define-stored-procedures [db & procedures]
-  (with-open [con (connect (eval db))]
-    (let [db {:connection con}]
-      `(do ~@(doall
-              (for [[fn-name options] procedures
-                    :let [sp-name (or (:specql.core/name options)
-                                      (name fn-name))
-                          info (catalog/sproc-info db
-                                                   (or (:specql.core/name options)
-                                                       (name fn-name)))]]
-                (do
-                  (assert info (str "No stored procedure found for name '" sp-name "'."
-                                    (when-not (:specql.core/name options)
-                                      " Hint: add :specql.core/name option if the procedure name is different from the var name.")))
+  (with-open [si (catalog/->schema-info (eval db))]
+    `(do ~@(doall
+            (for [[fn-name options] procedures
+                  :let [sp-name (or (:specql.core/name options)
+                                    (name fn-name))
+                        info (catalog/sproc-info si
+                                                 (or (:specql.core/name options)
+                                                     (name fn-name)))]]
+              (do
+                (assert info (str "No stored procedure found for name '" sp-name "'."
+                                  (when-not (:specql.core/name options)
+                                    " Hint: add :specql.core/name option if the procedure name is different from the var name.")))
                   ;; TODO:
                   ;; - resolve all arg specs to keywords (verify that they have been defined
                   ;; before the sproc is being defined)
-                  (sproc fn-name info))))))))
+                (sproc fn-name info)))))))

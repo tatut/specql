@@ -5,7 +5,7 @@
   :dependencies [[org.clojure/clojure "1.9.0"]
                  [org.clojure/java.jdbc "0.7.0"]]
   :profiles {:dev {:dependencies [[org.clojure/test.check "0.9.0"]
-                                  [com.opentable.components/otj-pg-embedded "0.7.1"]]}}
+                                  [io.zonky.test/embedded-postgres "2.0.3"]]}}
 
   :plugins [[lein-codox "0.10.3"]]
   :source-paths ["src"]

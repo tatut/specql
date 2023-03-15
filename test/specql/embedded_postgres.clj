@@ -1,5 +1,5 @@
 (ns specql.embedded-postgres
-  (:import (com.opentable.db.postgres.embedded PreparedDbProvider DatabasePreparer))
+  (:import (io.zonky.test.db.postgres.embedded PreparedDbProvider DatabasePreparer))
   (:require [clojure.java.jdbc :as jdbc]
             [clojure.string :as str]))
 

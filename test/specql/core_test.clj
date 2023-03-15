@@ -14,18 +14,40 @@
             [clojure.spec.test.alpha :as stest]
             [clojure.spec.gen.alpha :as gen]
             [specql.impl.composite :as composite]
-            [specql.impl.registry :as registry]))
+            [specql.impl.registry :as registry]
+            [specql.impl.catalog :as catalog]))
 
 
 (t/use-fixtures :each with-db)
 
-(def define-db (datasource))
+(comment
+  ;; Use real database
+  (def define-db (datasource))
+
+  ;; Generate schema file
+  (specql/create-schema-file! (datasource) "test/test-schema.edn")
+  )
+
+;; Use pregenerated schema file
+(def define-db
+  (if (System/getenv "SPECQL_USE_DB")
+    (datasource)
+    {::specql/schema-file "test-schema.edn"}))
+
+(deftest schema-info
+  (specql/create-schema-file! (datasource) "test/test-schema.edn")
+  (let [db (catalog/->schema-info (datasource))
+        cached (catalog/->schema-info "test-schema.edn")]
+
+    (doseq [t ["address" "employee" "company" "department" "quark" "typetest"]]
+      (is (= (catalog/table-info db t)
+             (catalog/table-info cached t))))))
 
 (define-tables define-db
   ["address" :address/address]
   ["employee" :employee/employees
    ;; Multiple option maps are automatically merged
-   {;; Remap department with suffix, so that we
+   { ;; Remap department with suffix, so that we
     ;; can use the unsuffixed for the JOIN
     "department" :employee/department-id}
 
@@ -919,7 +941,7 @@
                                 (keyword ns
                                          (-> name
                                              (str/replace #"_" "-"))))
-                              :specql.core/db define-db}
+                              :specql.core/schema-file "test-schema.edn"}
                 ["underscores" :underscores/underscores
                  ;; this name won't be transformed, the other column names will be
                  {"foo_bar" :dont.override/foobar}]))
@@ -943,7 +965,7 @@
      (eval-ns '(define-tables {:specql.core/transform-column-name
                                (fn [ns name]
                                  (keyword (str "not-a-qualified-" name)))
-                               :specql.core/db define-db}
+                               :specql.core/schema-file "test-schema.edn"}
                  ["underscores" :underscores/underscores])))))
 
 

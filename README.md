@@ -51,6 +51,12 @@ See the [docs](https://tatut.github.io/specql) for more examples.
 
 # Changes
 
+### 20230315
+
+* Some maintenance (upgrade embedded postgres)
+* Allow schema to be cached in EDN file on the classpath
+
+
 ### 20190301
 
 * Fix composite type as primary key in `upsert!`

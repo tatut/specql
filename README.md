@@ -51,6 +51,10 @@ See the [docs](https://tatut.github.io/specql) for more examples.
 
 # Changes
 
+### 20230316
+
+* Dependency update (and test fixes due to changed spec exception messages)
+
 ### 20230315
 
 * Some maintenance (upgrade embedded postgres)

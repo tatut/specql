@@ -1,10 +1,11 @@
 (ns specql.sproc-test
-  (:require  [clojure.test :as t :refer [deftest is testing]]
-             [specql.embedded-postgres :refer [with-db datasource db]]
-             [specql.core-test :refer [define-db]] ;; tables are defined in core test
-             [clojure.java.jdbc :as jdbc]
-             [specql.core :as specql :refer [insert! define-tables defsp]]
-             [specql.transform :as xf]))
+  (:require [specql.test-util :refer [asserted]]
+            [clojure.test :as t :refer [deftest is testing]]
+            [specql.embedded-postgres :refer [with-db datasource db]]
+            [specql.core-test :refer [define-db]] ;; tables are defined in core test
+            [clojure.java.jdbc :as jdbc]
+            [specql.core :as specql :refer [insert! define-tables defsp]]
+            [specql.transform :as xf]))
 
 (t/use-fixtures :each with-db)
 
@@ -85,11 +86,11 @@
 (def test-ns *ns*)
 
 (deftest sp-with-wrong-name
-  (is (thrown-with-msg?
-       AssertionError #"No stored procedure found for name.*Hint:"
-       (binding [*ns* test-ns]
-         (eval '(defsp foobar define-db)))))
-  (is (thrown-with-msg?
-       AssertionError #".*No stored procedure found for name 'hep'."
-       (binding [*ns* test-ns]
-         (eval '(defsp foobar define-db {:specql.core/name "hep"}))))))
+  (asserted
+   #"No stored procedure found for name.*Hint:"
+   (binding [*ns* test-ns]
+     (eval '(defsp foobar define-db))))
+  (asserted
+   #".*No stored procedure found for name 'hep'."
+   (binding [*ns* test-ns]
+     (eval '(defsp foobar define-db {:specql.core/name "hep"})))))

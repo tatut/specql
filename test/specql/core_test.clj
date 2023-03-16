@@ -1,6 +1,7 @@
 (ns specql.core-test
-  (:require [specql.core :refer [define-tables fetch insert! delete! update! upsert!
-                                 columns tables refresh!] :as specql]
+  (:require [specql.test-util :refer [asserted]]
+            [specql.core :refer [define-tables fetch insert! delete! update! upsert!
+                        columns tables refresh!] :as specql]
             [specql.op :as op]
             [specql.rel :as rel]
             [specql.transform :as xf]
@@ -31,8 +32,12 @@
 ;; Use pregenerated schema file
 (def define-db
   (if (System/getenv "SPECQL_USE_DB")
-    (datasource)
-    {::specql/schema-file "test-schema.edn"}))
+    (do
+      (println "Using db introspection for define-tables")
+      (datasource))
+    (do
+      (println "Using cached schema file for define-tables")
+      {::specql/schema-file "test-schema.edn"})))
 
 (deftest schema-info
   (specql/create-schema-file! (datasource) "test/test-schema.edn")
@@ -90,10 +95,6 @@
   ["mailinglist" :mailinglist/mailinglist]
   )
 
-(defmacro asserted [msg-regex & body]
-  `(is (~'thrown-with-msg?
-        AssertionError ~msg-regex
-        (do ~@body))))
 
 (deftest tables-have-been-created
   ;; If test data has been inserted, we know that all tables were create
@@ -128,28 +129,28 @@
 
 (deftest query-with-invalid-parameter
   (let [x "foo"]
-    (is (thrown-with-msg?
-         AssertionError #"val: \"foo\" fails spec: :employee/id"
-         (fetch db :employee/employees
-                #{:employee/name}
-                {:employee/id x})))))
+    (asserted
+     #"\"foo\" - failed:.*:employee/id"
+     (fetch db :employee/employees
+            #{:employee/name}
+            {:employee/id x}))))
 
 (deftest query-with-unknown-where-column
-  (is (thrown-with-msg?
-       AssertionError #"no :address/country in table :employee/employees"
-       (fetch db :employee/employees #{:employee/name}
-              ;; :address/country is a valid column, but not in this table
-              {:address/country "FI"})))
+  (asserted
+   #"no :address/country in table :employee/employees"
+   (fetch db :employee/employees #{:employee/name}
+          ;; :address/country is a valid column, but not in this table
+          {:address/country "FI"}))
 
-  (is (thrown-with-msg?
-       AssertionError #"no :employee/name in composite type :address/address"
-       (fetch db :employee/employees #{:employee/name}
-              {:employee/address {:employee/name "Address has no name"}})))
+  (asserted
+   #"no :employee/name in composite type :address/address"
+   (fetch db :employee/employees #{:employee/name}
+          {:employee/address {:employee/name "Address has no name"}}))
 
-  (is (thrown-with-msg?
-       AssertionError #"no :address/country in table :employee/employees"
-       (fetch db :employee/employees #{:employee/name}
-              {:address/country (op/in #{"FI"})}))))
+  (asserted
+   #"no :address/country in table :employee/employees"
+   (fetch db :employee/employees #{:employee/name}
+          {:address/country (op/in #{"FI"})})))
 
 (deftest composite-type-unpacking
   (is (= #:employee{:name "Wile E. Coyote"
@@ -175,18 +176,17 @@
 
   (testing "trying to insert invalid data"
     ;; Name field is NOT NULL, so insertion should fail
-    (is (thrown-with-msg?
-         AssertionError #"contains\? % :employee/name"
-         (insert! db :employee/employees
-                  {:employee/title "I have no name!"
-                   :employee/employment-started (java.util.Date.)})))
+    (asserted #"contains\? % :employee/name"
+              (insert! db :employee/employees
+                       {:employee/title "I have no name!"
+                        :employee/employment-started (java.util.Date.)}))
 
-    (is (thrown-with-msg?
-         AssertionError #"val: 42 fails spec"
-         (insert! db :employee/employees
-                  {:employee/name "Foo"
-                   :employee/employment-started (java.util.Date.)
-                   :employee/title 42}))))
+    (asserted
+     #"42 - failed"
+     (insert! db :employee/employees
+              {:employee/name "Foo"
+               :employee/employment-started (java.util.Date.)
+               :employee/title 42})))
 
   (testing "querying for the new employees"
     (is (= #:employee{:id 4 :name "Foo"}
@@ -195,14 +195,14 @@
                          {:employee/id 4})))))
 
   (testing "insert record with composite value"
-    (is (thrown-with-msg?
-         AssertionError #"predicate: .*\(<= \(count"
-         (insert! db :employee/employees
-                  {:employee/name "too long addr"
-                   :employee/employment-started (java.util.Date.)
-                   :employee/address #:address{:street "this streetname is too long, max 20 chars"
-                                               :postal-code "12345"
-                                               :country "US"}})))
+    (asserted
+     #"failed: .*\(<= \(count"
+     (insert! db :employee/employees
+              {:employee/name "too long addr"
+               :employee/employment-started (java.util.Date.)
+               :employee/address #:address{:street "this streetname is too long, max 20 chars"
+                                           :postal-code "12345"
+                                           :country "US"}}))
 
     (let [addr #:address {:street "somestreet 123"
                           :postal-code "90123"
@@ -221,20 +221,20 @@
                            {:employee/id 6})))))
 
       ;; Check that validation failures in composite types are detected
-      (is (thrown-with-msg?
-           AssertionError #"val: 666 fails"
-           (insert! db :employee/employees
-                    {:employee/name "Frob"
-                     :employee/address (assoc addr
-                                              :address/postal-code 666)})))
+      (asserted
+       #"666 - failed:"
+       (insert! db :employee/employees
+                {:employee/name "Frob"
+                 :employee/address (assoc addr
+                                          :address/postal-code 666)}))
 
       (testing "Interesting characters in data"
         (is (insert! db :employee/employees
-                   {:employee/name "Comma"
-                    :employee/employment-started (java.util.Date.)
-                    :employee/address #:address {:street "Commaroad,"
-                                                 :postal-code "12345"
-                                                 :country "CO"}}))
+                     {:employee/name "Comma"
+                      :employee/employment-started (java.util.Date.)
+                      :employee/address #:address {:street "Commaroad,"
+                                                   :postal-code "12345"
+                                                   :country "CO"}}))
 
         (is (insert! db :employee/employees
                      {:employee/name "Braces"
@@ -728,16 +728,16 @@
               (fetch db :employee/employees [:this :is :not :a :set] {})))
 
   (testing "Invalid define-tables is caught"
-    (asserted #"\"options\" fails spec"
+    (asserted #"\"options\" - failed"
               (eval-ns '(define-tables define-db
                           ["foo" :bar/sky
                            "options" :not-a-map])))
 
-    (asserted #":tbl fails spec"
+    (asserted #":tbl - failed"
               (eval-ns '(define-tables define-db
                           [:tbl "bar"])))
 
-    (asserted #"\"tablename\" fails spec"
+    (asserted #"\"tablename\" - failed"
               (eval-ns '(define-tables define-db
                           ;; not in vector
                           "tablename" :table/keyword))))

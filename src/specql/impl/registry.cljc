@@ -31,15 +31,19 @@
    (get table-info-registry
         (type-keyword-by-name table-info-registry type-name))))
 
+(def composite-type*
+  (memoize (fn [table-info-registry name]
+             (some (fn [[key {n :name t :type}]]
+                     (and (= :composite t)
+                          (= name n)
+                          key))
+                   table-info-registry))))
+
 (defn composite-type
   "Find user defined composite type from registry by name."
   ([name] (composite-type @table-info-registry name))
   ([table-info-registry name]
-   (some (fn [[key {n :name t :type}]]
-           (and (= :composite t)
-                (= name n)
-                key))
-         table-info-registry)))
+   (composite-type* table-info-registry name)))
 
 (defn enum-type
   "Find an enum type from registry by name."

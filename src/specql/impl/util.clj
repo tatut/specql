@@ -85,6 +85,8 @@
              record)))
        record record))))
 
+(def mem-composite-type (memoize registry/composite-type))
+
 (defn columns-and-values-to-set
   "Return columns and values for set (update or insert)"
   [table-info-registry table record]
@@ -108,8 +110,8 @@
                    columns)
 
             ;; A composite type
-            (registry/composite-type table-info-registry (:type column))
-            (let [composite-type-kw (registry/composite-type table-info-registry (:type column))
+            (mem-composite-type table-info-registry (:type column))
+            (let [composite-type-kw (mem-composite-type table-info-registry (:type column))
                   composite-type (table-info-registry composite-type-kw)
                   composite-columns (:columns composite-type)]
               (recur (conj names (:name column))

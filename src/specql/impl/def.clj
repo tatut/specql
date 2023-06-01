@@ -169,16 +169,17 @@
     (with-open [si (catalog/->schema-info db*)]
       (let [tables (map merge-table-options
                         (assert-spec ::tables-definition (map eval tables)))
-            table-info (into {}
-                             (map (fn [[table-name table-keyword opts]]
-                                    (let [ns (name (namespace table-keyword))]
-                                      [table-keyword
-                                       (-> (table-info si table-name)
-                                           (assoc :insert-spec-kw
-                                                  (keyword ns (str (name table-keyword) "-insert")))
-                                           (process-columns ns opts transform-column-name)
-                                           (assoc :rel opts))])))
-                             tables)
+            table-info (reindex
+                        (into {}
+                              (map (fn [[table-name table-keyword opts]]
+                                     (let [ns (name (namespace table-keyword))]
+                                       [table-keyword
+                                        (-> (table-info si table-name)
+                                            (assoc :insert-spec-kw
+                                                   (keyword ns (str (name table-keyword) "-insert")))
+                                            (process-columns ns opts transform-column-name)
+                                            (assoc :rel opts))])))
+                              tables))
             new-table-info (reduce-kv
                             (fn [m k v]
                               (assoc m k
@@ -192,17 +193,17 @@
                                                 columns)))))
                             {}
                             table-info)
-            table-info (merge @table-info-registry new-table-info)
+            table-info (merge-and-reindex @table-info-registry new-table-info)
             new-table-info (apply-enum-transformations table-info new-table-info)]
 
         (validate-table-info table-info)
 
         ;; Merge table info here, so that it is available in cljs compilation
-        (swap! table-info-registry merge new-table-info)
+        (swap! table-info-registry merge-and-reindex new-table-info)
 
         `(do
            ;; Register table info so that it is available at runtime
-           (swap! table-info-registry merge ~new-table-info)
+           (swap! table-info-registry merge-and-reindex ~new-table-info)
 
            ~@(doall
               (for [[_ table-keyword] tables

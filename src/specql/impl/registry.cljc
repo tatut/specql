@@ -34,12 +34,8 @@
 (defn composite-type
   "Find user defined composite type from registry by name."
   ([name] (composite-type @table-info-registry name))
-  ([table-info-registry name]
-   (some (fn [[key {n :name t :type}]]
-           (and (= :composite t)
-                (= name n)
-                key))
-         table-info-registry)))
+  ([{:keys [composite-name->key] :as _table-info-registry} name]
+   (composite-name->key name)))
 
 (defn enum-type
   "Find an enum type from registry by name."
@@ -118,3 +114,18 @@
 
 (defn tables []
   (-> @table-info-registry keys set))
+
+(defn reindex [table-info-registry]
+  (assoc table-info-registry
+         :composite-name->key (into {}
+                                    (keep (fn [[key {n :name t :type}]]
+                                            (when (= :composite t)
+                                              [n key])))
+                                    table-info-registry)))
+
+(defn merge-and-reindex
+  "Merge new data into table info registry and recalculate indexes."
+  [old-table-info-registry new-entries]
+  (-> old-table-info-registry
+      (merge new-entries)
+      reindex))

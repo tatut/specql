@@ -10,8 +10,9 @@
 (s/def ::varchar string?)
 
 ;; Postgres can handle upto 4713 BC, but do we need it?
-(s/def ::date (s/inst-in #inst "0001-01-01T00:00:00.000-00:00"
-                         #inst "9999-12-31T23:59:59.999-00:00"))
+(s/def ::date #?(:clj (s/inst-in #inst "0001-01-01T00:00:00.000-00:00"
+                                 #inst "9999-12-31T23:59:59.999-00:00")
+                 :cljs any?))
 (s/def ::timestamp ::date)
 (s/def ::timestamptz ::date)
 (s/def ::time #?(:clj #(instance? java.time.LocalTime %)

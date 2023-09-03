@@ -237,6 +237,26 @@
            path->array-type))
         results)))))
 
+(defn distinct-on [all-cols {distinct-opt :specql.core/distinct}]
+  (case distinct-opt
+    (nil false)
+    ""
+
+    true
+    " DISTINCT "
+
+    (do
+      (assert (seqable? distinct-opt))
+      (let [distinct-set (set distinct-opt)]
+        (str " DISTINCT ON ("
+             (str/join ", "
+                       (into []
+                             (comp
+                              (filter (fn [[_ [_ col _]]] (contains? distinct-set (first col))))
+                              (map (comp first second)))
+                             all-cols))
+             ") ")))))
+
 (defn- order-by [table-alias
                  columns
                  {order :specql.core/order-by
@@ -303,7 +323,9 @@
         (where/sql-where table-info-registry path->table where)
 
         all-cols (into cols has-many-join-cols)
-        sql (str "SELECT " (sql-columns-list all-cols)
+        sql (str "SELECT "
+                 (distinct-on all-cols options)
+                 (sql-columns-list all-cols)
                  " FROM " (sql-from table-info-registry table-alias)
                  (when-not (str/blank? where-clause)
                    (str " WHERE " where-clause))

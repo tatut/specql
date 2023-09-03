@@ -93,6 +93,9 @@
 
   ["recipient" :recipient/recipient]
   ["mailinglist" :mailinglist/mailinglist]
+
+  ["parent_table" :parent-table/parent-table]
+  ["with_possible_duplicates" :with-possible-duplicates/with-possible-duplicates]
   )
 
 
@@ -126,6 +129,68 @@
                                   :employee/employees
                                   #{:employee/foo}
                                   {}))))
+(:with-possible-duplicates/with-possible-duplicates @specql.impl.registry/table-info-registry)
+(deftest distinct-option
+  (testing "Table contains expected data"
+    (is (= (list #:with-possible-duplicates{:parent_id 1 :tag "foo"}
+                 #:with-possible-duplicates{:parent_id 1 :tag "bar"}
+                 #:with-possible-duplicates{:parent_id 2 :tag "foo"}
+                 #:with-possible-duplicates{:parent_id 3 :tag "bar"})
+
+           (fetch db
+                  ;; table
+                  :with-possible-duplicates/with-possible-duplicates
+                  ;; columns
+                  #{:with-possible-duplicates/parent_id
+                    :with-possible-duplicates/tag}
+                  ;; where
+                  {}
+                  {::specql/order-by :with-possible-duplicates/parent_id}))))
+
+  (testing "Distinct false uses `SELECT ALL`"
+    (is (= (list #:with-possible-duplicates{:parent_id 1 :tag "foo"}
+                 #:with-possible-duplicates{:parent_id 1 :tag "bar"}
+                 #:with-possible-duplicates{:parent_id 2 :tag "foo"}
+                 #:with-possible-duplicates{:parent_id 3 :tag "bar"})
+
+           (fetch db
+                  ;; table
+                  :with-possible-duplicates/with-possible-duplicates
+                  ;; columns
+                  #{:with-possible-duplicates/parent_id
+                    :with-possible-duplicates/tag}
+                  ;; where
+                  {}
+                  {::specql/distinct false}))))
+
+
+  (testing "Distinct true removes duplicates"
+    (is (= (list #:with-possible-duplicates{:tag "foo"}
+                 #:with-possible-duplicates{:tag "bar"})
+
+           (fetch db
+                  ;; table
+                  :with-possible-duplicates/with-possible-duplicates
+                  ;; columns
+                  #{:with-possible-duplicates/tag}
+                  ;; where
+                  {}
+                  {::specql/distinct true}))))
+
+  (testing "Distinct with seq of columns removes duplicates across columns"
+    (is (= (list #:with-possible-duplicates{:parent_id 1 :tag "foo"}
+                 #:with-possible-duplicates{:parent_id 2 :tag "foo"}
+                 #:with-possible-duplicates{:parent_id 3 :tag "bar"})
+
+           (fetch db
+                  ;; table
+                  :with-possible-duplicates/with-possible-duplicates
+                  ;; columns
+                  #{:with-possible-duplicates/parent_id
+                    :with-possible-duplicates/tag}
+                  ;; where
+                  {}
+                  {::specql/distinct #{:with-possible-duplicates/parent_id}})))))
 
 (deftest query-with-invalid-parameter
   (let [x "foo"]

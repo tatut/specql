@@ -212,6 +212,25 @@ CREATE TABLE table_with_composite_key (
   name TEXT
 );
 
+CREATE TABLE parent_table (
+  id SERIAL PRIMARY KEY
+);
+
+CREATE TABLE with_possible_duplicates (
+  parent_id INTEGER REFERENCES parent_table (id),
+  "tag" text
+);
+
+INSERT INTO parent_table VALUES (1), (2), (3);
+
+INSERT INTO with_possible_duplicates VALUES
+(1, 'foo'),
+(1, 'bar'),
+(2, 'foo'),
+(3, 'bar')
+;
+
+
 -- Some tables for multiple has-many join tests
 
 -- CREATE TABLE customer (

@@ -764,6 +764,7 @@
   ;; The "status" enum is defined as its own type, the transformation will be
   ;; applied to any field whose type is the enum
   ["status" :issue.status/status (xf/transform (xf/to-keyword "issue.status"))]
+  ["label" :issue.labels/label (xf/transform (xf/to-keyword "issue.label"))]
 
   ["issue" :issue/issue
    ;; the "issuetype" enum is not defined as a type, but we can still transform
@@ -810,6 +811,11 @@
     (is (= (list {:issue/title "I have some issues"})
            (fetch db :issue/issue #{:issue/title}
                   {:issue/status (op/in #{:issue.status/resolved})}))))
+  (testing "Overlaps overator"
+
+    (is (= #{:issue/labels :infra}
+           (fetch db :issue/issue #{:issue/labels}
+                  {:issue/labels (op/overlaps #{:issue.label/infra})}))))
 
   (testing "Upsert transformed"
     (let [issue (upsert! db :issue/issue

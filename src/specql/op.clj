@@ -79,6 +79,32 @@
           "IN op requires a collection of values")
   (->Inop values))
 
+
+(defrecord Overlapsop [values]
+  Op
+  (to-sql [_ v {transform ::xf/transform type :type enum? :enum? :as column-info}]
+    (let [values (if transform
+                   (map #(xf/to-sql transform %) values)
+                   values)
+          param (if enum?
+                  (str "?::" type)
+                  "?")]
+      [(str v " && ["
+            (if (empty? values)
+              "NULL"
+              (str/join "," (repeat (count values) param)))
+            "]")
+       (vec values)])))
+
+(defn overlaps [values]
+  (assert (clojure.core/and
+           (clojure.core/or (nil? values)
+                            (coll? values))
+           (clojure.core/not (map? values)))
+          "&& op requires a collection of values")
+  (->Overlapsop values))
+
+
 (def null?
   (reify Op
     (to-sql [_ v c]

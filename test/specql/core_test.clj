@@ -26,6 +26,7 @@
   (def define-db (datasource))
 
   ;; Generate schema file
+  (println "Generating schema file")
   (specql/create-schema-file! (datasource) "test/test-schema.edn")
   )
 
@@ -764,7 +765,6 @@
   ;; The "status" enum is defined as its own type, the transformation will be
   ;; applied to any field whose type is the enum
   ["status" :issue.status/status (xf/transform (xf/to-keyword "issue.status"))]
-  ["label" :issue.labels/label (xf/transform (xf/to-keyword "issue.label"))]
 
   ["issue" :issue/issue
    ;; the "issuetype" enum is not defined as a type, but we can still transform
@@ -787,7 +787,8 @@
 (deftest insert-and-query-transformed
   (testing "Inserting with transformed values works"
     (insert! db :issue/issue {:issue/title "I have some issues"
-                              :issue/status :issue.status/open}))
+                              :issue/status :issue.status/open
+                              :issue/idhistory [42, 23]}))
 
   (testing "Query returns the transformed value"
     (is (= (list {:issue/title "I have some issues"
@@ -811,11 +812,11 @@
     (is (= (list {:issue/title "I have some issues"})
            (fetch db :issue/issue #{:issue/title}
                   {:issue/status (op/in #{:issue.status/resolved})}))))
-  (testing "Overlaps overator"
 
-    (is (= #{:issue/labels :infra}
-           (fetch db :issue/issue #{:issue/labels}
-                  {:issue/labels (op/overlaps #{:issue.label/infra})}))))
+  (testing "Overlaps operator"
+    (is (= (list {:issue/title "I have some issues"})
+           (fetch db :issue/issue #{:issue/idhistory :issue/title}
+                  {:issue/idhistory (op/overlaps #{42})}))))
 
   (testing "Upsert transformed"
     (let [issue (upsert! db :issue/issue
@@ -849,7 +850,7 @@
     (is (every? (complement (tables)) [:foo/bar :no-such/table])))
 
   (testing "Fields are returned"
-    (is (= #{:issue/id :issue/title :issue/type :issue/description :issue/status}
+    (is (= #{:issue/id :issue/title :issue/type :issue/description :issue/status :issue/idhistory}
            (columns :issue/issue)))))
 
 (deftest tx

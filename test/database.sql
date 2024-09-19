@@ -171,14 +171,13 @@ CREATE TABLE nameclash2 ( nameclash1 varchar );
 -- Test field transformation
 
 CREATE TYPE status AS ENUM ('open','in-progress','resolved');
-CREATE TYPE label AS ENUM ('chore', 'security', 'infra');
 CREATE TYPE issuetype AS ENUM ('bug','feature');
 CREATE TABLE issue (
   id SERIAL PRIMARY KEY,
   title TEXT NOT NULL,
   description TEXT,
   status status,
-  labels label[],
+  idhistory integer[], -- fictional system changes ids sometimes and stores old ones here
   type issuetype
 );
 

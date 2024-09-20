@@ -1,5 +1,4 @@
-[![CircleCI](https://circleci.com/gh/tatut/specql.svg?style=svg)](https://circleci.com/gh/tatut/specql)
-[![Clojars Project](https://img.shields.io/clojars/v/specql.svg)](https://clojars.org/specql)
+[![Clojars Project](https://img.shields.io/clojars/v/io.github.tatut/specql.svg)](https://clojars.org/io.github.tatut/specql)
 
 # specql
 
@@ -50,6 +49,10 @@ See the [docs](https://tatut.github.io/specql) for more examples.
 ```
 
 # Changes
+
+### 20240920
+
+* Added overlaps array op (thanks erno)
 
 ### 20230316
 

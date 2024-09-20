@@ -26,6 +26,7 @@
   (def define-db (datasource))
 
   ;; Generate schema file
+  (println "Generating schema file")
   (specql/create-schema-file! (datasource) "test/test-schema.edn")
   )
 
@@ -786,7 +787,8 @@
 (deftest insert-and-query-transformed
   (testing "Inserting with transformed values works"
     (insert! db :issue/issue {:issue/title "I have some issues"
-                              :issue/status :issue.status/open}))
+                              :issue/status :issue.status/open
+                              :issue/idhistory [42, 23]}))
 
   (testing "Query returns the transformed value"
     (is (= (list {:issue/title "I have some issues"
@@ -810,6 +812,18 @@
     (is (= (list {:issue/title "I have some issues"})
            (fetch db :issue/issue #{:issue/title}
                   {:issue/status (op/in #{:issue.status/resolved})}))))
+
+  (testing "Overlaps operator"
+    (is (= (list {:issue/idhistory [42, 23] :issue/title "I have some issues"})
+           (fetch db :issue/issue #{:issue/title :issue/idhistory}
+                  {:issue/idhistory (op/overlaps #{(int 42)})})))
+
+    (is (empty?
+         (fetch db :issue/issue #{:issue/title :issue/idhistory}
+                {:issue/idhistory (op/overlaps #{(int 43)})})))
+    (is (empty?
+         (fetch db :issue/issue #{:issue/title :issue/idhistory}
+                {:issue/idhistory (op/overlaps #{})}))))
 
   (testing "Upsert transformed"
     (let [issue (upsert! db :issue/issue
@@ -843,7 +857,7 @@
     (is (every? (complement (tables)) [:foo/bar :no-such/table])))
 
   (testing "Fields are returned"
-    (is (= #{:issue/id :issue/title :issue/type :issue/description :issue/status}
+    (is (= #{:issue/id :issue/title :issue/type :issue/description :issue/status :issue/idhistory}
            (columns :issue/issue)))))
 
 (deftest tx

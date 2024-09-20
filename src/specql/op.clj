@@ -83,18 +83,20 @@
 (defrecord Overlapsop [values]
   Op
   (to-sql [_ v {transform ::xf/transform type :type enum? :enum? :as column-info}]
-    (let [values (if transform
-                   (map #(xf/to-sql transform %) values)
-                   values)
-          param (if enum?
-                  (str "?::" type)
-                  "?")]
-      [(str v " && ["
-            (if (empty? values)
-              "NULL"
-              (str/join "," (repeat (count values) param)))
-            "]")
-       (vec values)])))
+    (if (empty? values)
+      ["FALSE" []]  ; Ensure no results are returned for empty set.
+                                        ; PostgreSQL also considers .. && ARRAY[] to be false.
+                                        ; (In set theory the empty set is considered to
+      (let [values (if transform
+                     (map #(xf/to-sql transform %) values)
+                     values)
+            param (if enum?
+                    (str "?::" type)
+                    "?")]
+        [(str v " && ARRAY["
+              (str/join "," (repeat (count values) param))
+              "]")
+         (vec values)]))))
 
 (defn overlaps [values]
   (assert (clojure.core/and
